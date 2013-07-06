@@ -16,14 +16,21 @@ type respAndErr struct {
 	err  error
 }
 
-func Watch(cluster string, key string, sinceIndex uint64, receiver chan *store.Response, stop *chan bool) (*store.Response, error) {
+// Watch any change under the given prefix
+// When a sinceIndex is given, watch will try to scan from that index to the last index
+// and will return any changes under the given prefix during the histroy
+// If a receiver channel is given, it will be a long-term watch. Watch will block at the 
+// channel. And after someone receive the channel, it will go on to watch that prefix.
+// If a stop channel is given, client can close long-term watch using the stop channel
+
+func Watch(cluster string, prefix string, sinceIndex uint64, receiver chan *store.Response, stop *chan bool) (*store.Response, error) {
 
 	if receiver == nil {
-		return watchOnce(cluster, key, sinceIndex, stop)
+		return watchOnce(cluster, prefix, sinceIndex, stop)
 
 	} else {
 		for {
-			resp, err := watchOnce(cluster, key, sinceIndex, stop)
+			resp, err := watchOnce(cluster, prefix, sinceIndex, stop)
 			if resp != nil {
 				sinceIndex = resp.Index
 				receiver <- resp
@@ -38,6 +45,8 @@ func Watch(cluster string, key string, sinceIndex uint64, receiver chan *store.R
 
 }
 
+// helper func
+// return when there is change under the given prefix
 func watchOnce(cluster string, key string, sinceIndex uint64, stop *chan bool) (*store.Response, error) {
 
 	httpPath := path.Join(cluster, "/", version, "/watch/", key)
@@ -48,15 +57,18 @@ func watchOnce(cluster string, key string, sinceIndex uint64, stop *chan bool) (
 	var err error
 
 	if sinceIndex == 0 {
-		// Get
+
+		// Get request if no index is given
 		resp, err = http.Get(httpPath)
 		if resp == nil {
 			return nil, err
 		}
 
 	} else {
+
 		// Post
 		content := fmt.Sprintf("index=%v", sinceIndex)
+
 		// if we connect to a follower, we will retry until we found a leader
 		for {
 			reader := bytes.NewReader([]byte(content))
@@ -64,15 +76,21 @@ func watchOnce(cluster string, key string, sinceIndex uint64, stop *chan bool) (
 			c := make(chan respAndErr)
 
 			if stop == nil {
+
 				resp, err = http.Post(httpPath, "application/x-www-form-urlencoded", reader)
 			} else {
+
 				go func() {
 					resp, err := http.Post(httpPath, "application/x-www-form-urlencoded", reader)
 					c <- respAndErr{resp, err}
 				}()
+
+				// select at stop or continue to receive
 				select {
+
 				case res := <-c:
 					resp, err = res.resp, res.err
+
 				case <-(*stop):
 					resp, err = nil, errors.New("User stoped watch")
 				}
@@ -81,6 +99,7 @@ func watchOnce(cluster string, key string, sinceIndex uint64, stop *chan bool) (
 			if resp != nil {
 
 				if resp.StatusCode == http.StatusTemporaryRedirect {
+
 					httpPath = resp.Header.Get("Location")
 
 					resp.Body.Close()
