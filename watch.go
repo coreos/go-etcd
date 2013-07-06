@@ -11,15 +11,21 @@ import (
 	"path"
 )
 
-func Watch(cluster string, key string, sinceIndex uint64, receiver chan *store.Response) (*store.Response, error) {
+type respAndErr struct {
+	resp *http.Response
+	err  error
+}
+
+func Watch(cluster string, key string, sinceIndex uint64, receiver chan *store.Response, stop *chan bool) (*store.Response, error) {
 
 	if receiver == nil {
-		return watchOnce(cluster, key, sinceIndex)
+		return watchOnce(cluster, key, sinceIndex, stop)
 
 	} else {
 		for {
-			resp, err := watchOnce(cluster, key, sinceIndex)
+			resp, err := watchOnce(cluster, key, sinceIndex, stop)
 			if resp != nil {
+				sinceIndex = resp.Index
 				receiver <- resp
 			} else {
 				return nil, err
@@ -32,7 +38,7 @@ func Watch(cluster string, key string, sinceIndex uint64, receiver chan *store.R
 
 }
 
-func watchOnce(cluster string, key string, sinceIndex uint64) (*store.Response, error) {
+func watchOnce(cluster string, key string, sinceIndex uint64, stop *chan bool) (*store.Response, error) {
 
 	httpPath := path.Join(cluster, "/", version, "/watch/", key)
 
@@ -54,7 +60,23 @@ func watchOnce(cluster string, key string, sinceIndex uint64) (*store.Response, 
 		// if we connect to a follower, we will retry until we found a leader
 		for {
 			reader := bytes.NewReader([]byte(content))
-			resp, err = http.Post(httpPath, "application/x-www-form-urlencoded", reader)
+
+			c := make(chan respAndErr)
+
+			if stop == nil {
+				resp, err = http.Post(httpPath, "application/x-www-form-urlencoded", reader)
+			} else {
+				go func() {
+					resp, err := http.Post(httpPath, "application/x-www-form-urlencoded", reader)
+					c <- respAndErr{resp, err}
+				}()
+				select {
+				case res := <-c:
+					resp, err = res.resp, res.err
+				case <-(*stop):
+					resp, err = nil, errors.New("User stoped watch")
+				}
+			}
 
 			if resp != nil {
 

@@ -12,7 +12,7 @@ func TestWatch(t *testing.T) {
 
 	go setHelper(cluster, "bar")
 
-	result, err := Watch(cluster, "foo", 0, nil)
+	result, err := Watch(cluster, "foo", 0, nil, nil)
 
 	if err != nil || result.Key != "/foo/foo" || result.Value != "bar" {
 		if err != nil {
@@ -20,9 +20,8 @@ func TestWatch(t *testing.T) {
 		}
 		t.Fatalf("Watch failed with %s %s %v %v", result.Key, result.Value, result.TTL, result.Index)
 	}
-	fmt.Println(result.Index)
 
-	result, err = Watch(cluster, "foo", result.Index, nil)
+	result, err = Watch(cluster, "foo", result.Index, nil, nil)
 
 	if err != nil || result.Key != "/foo/foo" || result.Value != "bar" {
 		if err != nil {
@@ -32,11 +31,13 @@ func TestWatch(t *testing.T) {
 	}
 
 	c := make(chan *store.Response, 10)
+	stop := make(chan bool, 1)
 
 	go setLoop(cluster, "bar")
-	go reciver(c)
 
-	Watch(cluster, "foo", 0, c)
+	go reciver(c, &stop)
+
+	Watch(cluster, "foo", 0, c, &stop)
 }
 
 func setHelper(cluster string, value string) {
@@ -53,9 +54,9 @@ func setLoop(cluster string, value string) {
 	}
 }
 
-func reciver(c chan *store.Response) {
+func reciver(c chan *store.Response, stop *chan bool) {
 	for i := 0; i < 10; i++ {
-		resp := <-c
-		fmt.Println(resp.Index)
+		<-c
 	}
+	(*stop) <- true
 }
