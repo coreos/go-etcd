@@ -1,41 +1,35 @@
 package goetcd
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/xiangli-cmu/raft-etcd/store"
 	"io/ioutil"
 	"net/http"
 	"path"
 )
 
-var version = "v1"
-
-func Set(cluster string, key string, value string, ttl uint64) (*store.Response, error) {
-
+func Delete(cluster string, key string) (*store.Response, error) {
 	httpPath := path.Join(cluster, "/", version, "/keys/", key)
 
 	//TODO: deal with https
 	httpPath = "http://" + httpPath
 
-	content := "value=" + value
-
-	if ttl > 0 {
-		content += fmt.Sprintf("&ttl=%v", ttl)
-	}
+	client := &http.Client{}
 
 	var resp *http.Response
 	var err error
-	// if we connect to a follower, we will retry until we found a leader
+
 	for {
-		reader := bytes.NewReader([]byte(content))
-		resp, err = http.Post(httpPath, "application/x-www-form-urlencoded", reader)
+
+		req, err := http.NewRequest("DELETE", httpPath, nil)
+
+		resp, err = client.Do(req)
 
 		if resp != nil {
 
 			if resp.StatusCode == http.StatusTemporaryRedirect {
+
 				httpPath = resp.Header.Get("Location")
 
 				resp.Body.Close()
@@ -47,7 +41,9 @@ func Set(cluster string, key string, value string, ttl uint64) (*store.Response,
 				// try to connect the leader
 				continue
 			} else {
+
 				break
+
 			}
 
 		}
@@ -57,8 +53,9 @@ func Set(cluster string, key string, value string, ttl uint64) (*store.Response,
 
 	b, err := ioutil.ReadAll(resp.Body)
 
+	resp.Body.Close()
+
 	if err != nil {
-		resp.Body.Close()
 		return nil, err
 	}
 
@@ -67,10 +64,8 @@ func Set(cluster string, key string, value string, ttl uint64) (*store.Response,
 	err = json.Unmarshal(b, &result)
 
 	if err != nil {
-		resp.Body.Close()
 		return nil, err
 	}
-	resp.Body.Close()
 
 	return &result, nil
 

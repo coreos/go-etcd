@@ -21,7 +21,7 @@ func TestSet(t *testing.T) {
 
 	result, err = Set(cluster, "foo", "bar", 100)
 
-	if err != nil || result.Key != "/foo" || result.Value != "bar" || result.TTL != 99 {
+	if err != nil || result.Key != "/foo" || result.Value != "bar" || result.PrevValue != "bar" || result.TTL != 99 {
 		if err != nil {
 			t.Fatal(err)
 		}
