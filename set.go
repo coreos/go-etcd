@@ -1,14 +1,15 @@
 package goetcd
 
 import (
-	"path"
-	"fmt"
 	"bytes"
-	"net/http"
-	"io/ioutil"
-	"github.com/xiangli-cmu/raft-etcd/store"
 	"encoding/json"
+	"fmt"
+	"github.com/xiangli-cmu/raft-etcd/store"
+	"io/ioutil"
+	"net/http"
+	"path"
 )
+
 var version = "v1"
 
 func Set(cluster string, key string, value string, ttl uint64) (*store.Response, error) {
@@ -20,7 +21,7 @@ func Set(cluster string, key string, value string, ttl uint64) (*store.Response,
 
 	content := "value=" + value
 
-	if (ttl > 0) {
+	if ttl > 0 {
 		content += fmt.Sprintf("&ttl=%v", ttl)
 	}
 
@@ -46,9 +47,9 @@ func Set(cluster string, key string, value string, ttl uint64) (*store.Response,
 		}
 
 		return &result, nil
-		
+
 	}
 
 	return nil, err
 
-} 
+}
