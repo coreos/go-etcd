@@ -19,7 +19,7 @@ type respAndErr struct {
 // Watch any change under the given prefix
 // When a sinceIndex is given, watch will try to scan from that index to the last index
 // and will return any changes under the given prefix during the histroy
-// If a receiver channel is given, it will be a long-term watch. Watch will block at the 
+// If a receiver channel is given, it will be a long-term watch. Watch will block at the
 // channel. And after someone receive the channel, it will go on to watch that prefix.
 // If a stop channel is given, client can close long-term watch using the stop channel
 
