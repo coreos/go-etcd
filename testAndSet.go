@@ -1,13 +1,13 @@
 package goetcd
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"path"
 )
 
@@ -18,18 +18,20 @@ func TestAndSet(cluster string, key string, prevValue string, value string, ttl 
 	//TODO: deal with https
 	httpPath = "http://" + httpPath
 
-	content := "value=" + value + "&prevValue=" + prevValue
+	v := url.Values{}
+	v.Set("value", value)
+	v.Set("prevValue", prevValue)
 
 	if ttl > 0 {
-		content += fmt.Sprintf("&ttl=%v", ttl)
+		v.Set("ttl", fmt.Sprintf("%v", ttl))
 	}
 
 	var resp *http.Response
 	var err error
 	// if we connect to a follower, we will retry until we found a leader
 	for {
-		reader := bytes.NewReader([]byte(content))
-		resp, err = http.Post(httpPath, "application/x-www-form-urlencoded", reader)
+		client := http.Client{}
+		resp, err = client.PostForm(httpPath, v)
 
 		if resp != nil {
 
@@ -54,7 +56,7 @@ func TestAndSet(cluster string, key string, prevValue string, value string, ttl 
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)
-
+	fmt.Println(string(b))
 	if err != nil {
 		resp.Body.Close()
 		return nil, false, err

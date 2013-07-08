@@ -1,13 +1,13 @@
 package goetcd
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"path"
 )
 
@@ -20,18 +20,19 @@ func Set(cluster string, key string, value string, ttl uint64) (*store.Response,
 	//TODO: deal with https
 	httpPath = "http://" + httpPath
 
-	content := "value=" + value
+	v := url.Values{}
+	v.Set("value", value)
 
 	if ttl > 0 {
-		content += fmt.Sprintf("&ttl=%v", ttl)
+		v.Set("ttl", fmt.Sprintf("%v", ttl))
 	}
 
 	var resp *http.Response
 	var err error
 	// if we connect to a follower, we will retry until we found a leader
 	for {
-		reader := bytes.NewReader([]byte(content))
-		resp, err = http.Post(httpPath, "application/x-www-form-urlencoded", reader)
+		client := http.Client{}
+		resp, err = client.PostForm(httpPath, v)
 
 		if resp != nil {
 

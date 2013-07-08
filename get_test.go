@@ -6,7 +6,7 @@ import (
 )
 
 func TestGet(t *testing.T) {
-	cluster := "127.0.0.1:4003"
+	cluster := "127.0.0.1:4001"
 
 	Set(cluster, "foo", "bar", 100)
 
