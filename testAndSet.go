@@ -11,17 +11,16 @@ import (
 	"path"
 )
 
-var version = "v1"
+func TestAndSet(cluster string, key string, prevValue string, value string, ttl uint64) (*store.Response, bool, error) {
 
-func Set(cluster string, key string, value string, ttl uint64) (*store.Response, error) {
-
-	httpPath := path.Join(cluster, "/", version, "/keys/", key)
+	httpPath := path.Join(cluster, "/", version, "/testAndSet/", key)
 
 	//TODO: deal with https
 	httpPath = "http://" + httpPath
 
 	v := url.Values{}
 	v.Set("value", value)
+	v.Set("prevValue", prevValue)
 
 	if ttl > 0 {
 		v.Set("ttl", fmt.Sprintf("%v", ttl))
@@ -42,7 +41,7 @@ func Set(cluster string, key string, value string, ttl uint64) (*store.Response,
 				resp.Body.Close()
 
 				if httpPath == "" {
-					return nil, errors.New("Cannot get redirection location")
+					return nil, false, errors.New("Cannot get redirection location")
 				}
 
 				// try to connect the leader
@@ -53,14 +52,14 @@ func Set(cluster string, key string, value string, ttl uint64) (*store.Response,
 
 		}
 
-		return nil, err
+		return nil, false, err
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)
-
+	fmt.Println(string(b))
 	if err != nil {
 		resp.Body.Close()
-		return nil, err
+		return nil, false, err
 	}
 
 	var result store.Response
@@ -69,10 +68,15 @@ func Set(cluster string, key string, value string, ttl uint64) (*store.Response,
 
 	if err != nil {
 		resp.Body.Close()
-		return nil, err
+		return nil, false, err
 	}
 	resp.Body.Close()
 
-	return &result, nil
+	if result.PrevValue == prevValue && result.Value == value {
+
+		return &result, true, nil
+	}
+
+	return &result, false, nil
 
 }

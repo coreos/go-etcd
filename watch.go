@@ -1,13 +1,13 @@
 package goetcd
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"path"
 )
 
@@ -67,21 +67,20 @@ func watchOnce(cluster string, key string, sinceIndex uint64, stop *chan bool) (
 	} else {
 
 		// Post
-		content := fmt.Sprintf("index=%v", sinceIndex)
+		v := url.Values{}
+		v.Set("index", fmt.Sprintf("%v", sinceIndex))
 
 		// if we connect to a follower, we will retry until we found a leader
 		for {
-			reader := bytes.NewReader([]byte(content))
 
 			c := make(chan respAndErr)
+			client := http.Client{}
+			resp, err = client.PostForm(httpPath, v)
 
-			if stop == nil {
-
-				resp, err = http.Post(httpPath, "application/x-www-form-urlencoded", reader)
-			} else {
-
+			if stop != nil {
 				go func() {
-					resp, err := http.Post(httpPath, "application/x-www-form-urlencoded", reader)
+					resp, err = client.PostForm(httpPath, v)
+
 					c <- respAndErr{resp, err}
 				}()
 

@@ -5,7 +5,7 @@ import (
 )
 
 func TestDelete(t *testing.T) {
-	cluster := "127.0.0.1:4002"
+	cluster := "127.0.0.1:4001"
 	Set(cluster, "foo", "bar", 100)
 	result, err := Delete(cluster, "foo")
 	if err != nil {

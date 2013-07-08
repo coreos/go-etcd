@@ -6,7 +6,7 @@ import (
 )
 
 func TestSet(t *testing.T) {
-	cluster := "127.0.0.1:4002"
+	cluster := "127.0.0.1:4001"
 	result, err := Set(cluster, "foo", "bar", 100)
 
 	if err != nil || result.Key != "/foo" || result.Value != "bar" || result.TTL != 99 {
