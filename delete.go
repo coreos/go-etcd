@@ -3,7 +3,7 @@ package goetcd
 import (
 	"encoding/json"
 	"errors"
-	"github.com/xiangli-cmu/raft-etcd/store"
+	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
 	"path"

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/xiangli-cmu/raft-etcd/store"
+	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
 	"path"

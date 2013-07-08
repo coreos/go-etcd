@@ -2,7 +2,7 @@ package goetcd
 
 import (
 	"fmt"
-	"github.com/xiangli-cmu/raft-etcd/store"
+	"github.com/coreos/etcd/store"
 	"testing"
 	"time"
 )
