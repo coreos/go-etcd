@@ -1,26 +1,38 @@
-package goetcd
+package etcd
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"path"
 )
 
-func List(cluster string, prefix string) ([]store.ListNode, error) {
+var version = "v1"
 
-	httpPath := path.Join(cluster, "/", version, "/list/", prefix)
+func Set(cluster string, key string, value string, ttl uint64) (*store.Response, error) {
+
+	httpPath := path.Join(cluster, "/", version, "/keys/", key)
 
 	//TODO: deal with https
 	httpPath = "http://" + httpPath
+
+	v := url.Values{}
+	v.Set("value", value)
+
+	if ttl > 0 {
+		v.Set("ttl", fmt.Sprintf("%v", ttl))
+	}
 
 	var resp *http.Response
 	var err error
 	// if we connect to a follower, we will retry until we found a leader
 	for {
-		resp, err = http.Get(httpPath)
+		client := http.Client{}
+		resp, err = client.PostForm(httpPath, v)
 
 		if resp != nil {
 
@@ -51,7 +63,7 @@ func List(cluster string, prefix string) ([]store.ListNode, error) {
 		return nil, err
 	}
 
-	var result []store.ListNode
+	var result store.Response
 
 	err = json.Unmarshal(b, &result)
 
@@ -61,6 +73,6 @@ func List(cluster string, prefix string) ([]store.ListNode, error) {
 	}
 	resp.Body.Close()
 
-	return result, nil
+	return &result, nil
 
 }

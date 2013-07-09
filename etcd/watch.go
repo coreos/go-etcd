@@ -1,4 +1,4 @@
-package goetcd
+package etcd
 
 import (
 	"encoding/json"

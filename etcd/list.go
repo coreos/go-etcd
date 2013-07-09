@@ -1,4 +1,4 @@
-package goetcd
+package etcd
 
 import (
 	"encoding/json"
@@ -9,27 +9,22 @@ import (
 	"path"
 )
 
-func Delete(cluster string, key string) (*store.Response, error) {
-	httpPath := path.Join(cluster, "/", version, "/keys/", key)
+func List(cluster string, prefix string) ([]store.ListNode, error) {
+
+	httpPath := path.Join(cluster, "/", version, "/list/", prefix)
 
 	//TODO: deal with https
 	httpPath = "http://" + httpPath
 
-	client := &http.Client{}
-
 	var resp *http.Response
 	var err error
-
+	// if we connect to a follower, we will retry until we found a leader
 	for {
-
-		req, err := http.NewRequest("DELETE", httpPath, nil)
-
-		resp, err = client.Do(req)
+		resp, err = http.Get(httpPath)
 
 		if resp != nil {
 
 			if resp.StatusCode == http.StatusTemporaryRedirect {
-
 				httpPath = resp.Header.Get("Location")
 
 				resp.Body.Close()
@@ -41,9 +36,7 @@ func Delete(cluster string, key string) (*store.Response, error) {
 				// try to connect the leader
 				continue
 			} else {
-
 				break
-
 			}
 
 		}
@@ -53,20 +46,21 @@ func Delete(cluster string, key string) (*store.Response, error) {
 
 	b, err := ioutil.ReadAll(resp.Body)
 
-	resp.Body.Close()
-
 	if err != nil {
+		resp.Body.Close()
 		return nil, err
 	}
 
-	var result store.Response
+	var result []store.ListNode
 
 	err = json.Unmarshal(b, &result)
 
 	if err != nil {
+		resp.Body.Close()
 		return nil, err
 	}
+	resp.Body.Close()
 
-	return &result, nil
+	return result, nil
 
 }

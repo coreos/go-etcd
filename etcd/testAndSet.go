@@ -1,26 +1,37 @@
-package goetcd
+package etcd
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"path"
 )
 
-func Get(cluster string, key string) (*store.Response, error) {
+func TestAndSet(cluster string, key string, prevValue string, value string, ttl uint64) (*store.Response, bool, error) {
 
-	httpPath := path.Join(cluster, "/", version, "/keys/", key)
+	httpPath := path.Join(cluster, "/", version, "/testAndSet/", key)
 
 	//TODO: deal with https
 	httpPath = "http://" + httpPath
+
+	v := url.Values{}
+	v.Set("value", value)
+	v.Set("prevValue", prevValue)
+
+	if ttl > 0 {
+		v.Set("ttl", fmt.Sprintf("%v", ttl))
+	}
 
 	var resp *http.Response
 	var err error
 	// if we connect to a follower, we will retry until we found a leader
 	for {
-		resp, err = http.Get(httpPath)
+		client := http.Client{}
+		resp, err = client.PostForm(httpPath, v)
 
 		if resp != nil {
 
@@ -30,7 +41,7 @@ func Get(cluster string, key string) (*store.Response, error) {
 				resp.Body.Close()
 
 				if httpPath == "" {
-					return nil, errors.New("Cannot get redirection location")
+					return nil, false, errors.New("Cannot get redirection location")
 				}
 
 				// try to connect the leader
@@ -41,14 +52,14 @@ func Get(cluster string, key string) (*store.Response, error) {
 
 		}
 
-		return nil, err
+		return nil, false, err
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)
-
+	fmt.Println(string(b))
 	if err != nil {
 		resp.Body.Close()
-		return nil, err
+		return nil, false, err
 	}
 
 	var result store.Response
@@ -57,10 +68,15 @@ func Get(cluster string, key string) (*store.Response, error) {
 
 	if err != nil {
 		resp.Body.Close()
-		return nil, err
+		return nil, false, err
 	}
 	resp.Body.Close()
 
-	return &result, nil
+	if result.PrevValue == prevValue && result.Value == value {
+
+		return &result, true, nil
+	}
+
+	return &result, false, nil
 
 }
