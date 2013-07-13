@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"path"
 )
 
 type respAndErr struct {
@@ -23,14 +22,14 @@ type respAndErr struct {
 // channel. And after someone receive the channel, it will go on to watch that prefix.
 // If a stop channel is given, client can close long-term watch using the stop channel
 
-func Watch(cluster string, prefix string, sinceIndex uint64, receiver chan *store.Response, stop *chan bool) (*store.Response, error) {
+func Watch(prefix string, sinceIndex uint64, receiver chan *store.Response, stop *chan bool) (*store.Response, error) {
 
 	if receiver == nil {
-		return watchOnce(cluster, prefix, sinceIndex, stop)
+		return watchOnce(prefix, sinceIndex, stop)
 
 	} else {
 		for {
-			resp, err := watchOnce(cluster, prefix, sinceIndex, stop)
+			resp, err := watchOnce(prefix, sinceIndex, stop)
 			if resp != nil {
 				sinceIndex = resp.Index
 				receiver <- resp
@@ -47,19 +46,17 @@ func Watch(cluster string, prefix string, sinceIndex uint64, receiver chan *stor
 
 // helper func
 // return when there is change under the given prefix
-func watchOnce(cluster string, key string, sinceIndex uint64, stop *chan bool) (*store.Response, error) {
+func watchOnce(key string, sinceIndex uint64, stop *chan bool) (*store.Response, error) {
 
-	httpPath := path.Join(cluster, "/", version, "/watch/", key)
+	httpPath := getHttpPath("watch", key)
 
-	//TODO: deal with https
-	httpPath = "http://" + httpPath
 	var resp *http.Response
 	var err error
 
 	if sinceIndex == 0 {
 
 		// Get request if no index is given
-		resp, err = http.Get(httpPath)
+		resp, err = client.httpClient.Get(httpPath)
 		if resp == nil {
 			return nil, err
 		}
@@ -74,12 +71,11 @@ func watchOnce(cluster string, key string, sinceIndex uint64, stop *chan bool) (
 		for {
 
 			c := make(chan respAndErr)
-			client := http.Client{}
-			resp, err = client.PostForm(httpPath, v)
+			resp, err = client.httpClient.PostForm(httpPath, v)
 
 			if stop != nil {
 				go func() {
-					resp, err = client.PostForm(httpPath, v)
+					resp, err = client.httpClient.PostForm(httpPath, v)
 
 					c <- respAndErr{resp, err}
 				}()

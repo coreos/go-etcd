@@ -6,16 +6,11 @@ import (
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
-	"path"
 )
 
-func Delete(cluster string, key string) (*store.Response, error) {
-	httpPath := path.Join(cluster, "/", version, "/keys/", key)
+func Delete(key string) (*store.Response, error) {
 
-	//TODO: deal with https
-	httpPath = "http://" + httpPath
-
-	client := &http.Client{}
+	httpPath := getHttpPath("keys", key)
 
 	var resp *http.Response
 	var err error
@@ -24,7 +19,7 @@ func Delete(cluster string, key string) (*store.Response, error) {
 
 		req, err := http.NewRequest("DELETE", httpPath, nil)
 
-		resp, err = client.Do(req)
+		resp, err = client.httpClient.Do(req)
 
 		if resp != nil {
 

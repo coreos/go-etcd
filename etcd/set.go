@@ -8,17 +8,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"path"
 )
 
-var version = "v1"
+func Set(key string, value string, ttl uint64) (*store.Response, error) {
 
-func Set(cluster string, key string, value string, ttl uint64) (*store.Response, error) {
-
-	httpPath := path.Join(cluster, "/", version, "/keys/", key)
-
-	//TODO: deal with https
-	httpPath = "http://" + httpPath
+	httpPath := getHttpPath("keys", key)
 
 	v := url.Values{}
 	v.Set("value", value)
@@ -31,8 +25,8 @@ func Set(cluster string, key string, value string, ttl uint64) (*store.Response,
 	var err error
 	// if we connect to a follower, we will retry until we found a leader
 	for {
-		client := http.Client{}
-		resp, err = client.PostForm(httpPath, v)
+
+		resp, err = client.httpClient.PostForm(httpPath, v)
 
 		if resp != nil {
 
@@ -51,6 +45,8 @@ func Set(cluster string, key string, value string, ttl uint64) (*store.Response,
 				break
 			}
 
+		} else {
+			return nil, err
 		}
 
 		return nil, err

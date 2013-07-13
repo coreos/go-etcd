@@ -56,7 +56,7 @@ func TestAndSet(cluster string, key string, prevValue string, value string, ttl 
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(b))
+
 	if err != nil {
 		resp.Body.Close()
 		return nil, false, err

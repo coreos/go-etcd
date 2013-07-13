@@ -6,21 +6,18 @@ import (
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
-	"path"
 )
 
-func Get(cluster string, key string) (*store.Response, error) {
-
-	httpPath := path.Join(cluster, "/", version, "/keys/", key)
-
-	//TODO: deal with https
-	httpPath = "http://" + httpPath
+func Get(key string) (*[]store.Response, error) {
 
 	var resp *http.Response
 	var err error
+
+	httpPath := getHttpPath("keys", key)
+
 	// if we connect to a follower, we will retry until we found a leader
 	for {
-		resp, err = http.Get(httpPath)
+		resp, err = client.httpClient.Get(httpPath)
 
 		if resp != nil {
 
@@ -51,16 +48,26 @@ func Get(cluster string, key string) (*store.Response, error) {
 		return nil, err
 	}
 
+	var results []store.Response
 	var result store.Response
 
 	err = json.Unmarshal(b, &result)
 
 	if err != nil {
-		resp.Body.Close()
-		return nil, err
+		err = json.Unmarshal(b, &results)
+
+		if err != nil {
+			resp.Body.Close()
+			return nil, err
+		}
+
+	} else {
+		results = make([]store.Response, 1)
+		results[0] = result
 	}
+
 	resp.Body.Close()
 
-	return &result, nil
+	return &results, nil
 
 }

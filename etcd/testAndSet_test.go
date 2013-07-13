@@ -1,14 +1,13 @@
 package etcd
 
 import (
-	"fmt"
 	"testing"
 	"time"
 )
 
 func TestTestAndSet(t *testing.T) {
 	cluster := "127.0.0.1:4001"
-	Set(cluster, "foo_testAndSet", "bar", 100)
+	Set("foo_testAndSet", "bar", 100)
 
 	time.Sleep(time.Second)
 
@@ -34,9 +33,6 @@ func TestTestAndSet(t *testing.T) {
 }
 
 func testAndSet(cluster string, key string, prevValue string, value string, c chan bool) {
-	_, success, err := TestAndSet(cluster, key, prevValue, value, 0)
-	if err != nil {
-		fmt.Println(err)
-	}
+	_, success, _ := TestAndSet(cluster, key, prevValue, value, 0)
 	c <- success
 }
