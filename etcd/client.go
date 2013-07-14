@@ -3,9 +3,11 @@ package etcd
 import (
 	"crypto/tls"
 	"errors"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"path"
+	"strings"
 	"time"
 )
 
@@ -107,6 +109,35 @@ func setCluster(machine string, machineFile string, confFile string) {
 // Update the cluster information in the given machineFile
 func setClusterFromFile(machineFile string, confFile string) {
 
+}
+
+// sync machine information with the cluster
+func syncMachines() bool {
+	for _, machine := range client.cluster.Machines {
+		httpPath := createHttpPath(machine, "machines")
+		resp, err := client.httpClient.Get(httpPath)
+		if err != nil {
+			// try another machine in the cluster
+			continue
+		} else {
+			b, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				// try another machine in the cluster
+				continue
+			}
+			// update Machines List
+			client.cluster.Machines = strings.Split(string(b), ",")
+			return true
+		}
+	}
+	return false
+}
+
+// serverName should contain both hostName and port
+func createHttpPath(serverName string, _path string) string {
+	httpPath := path.Join(serverName, _path)
+	httpPath = client.config.Scheme + httpPath
+	return httpPath
 }
 
 // Dial with timeout
