@@ -2,42 +2,17 @@ package etcd
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
-	"net/http"
 )
 
 func Get(key string) (*[]store.Response, error) {
 
-	var resp *http.Response
-	var err error
-
 	httpPath := getHttpPath("keys", key)
 
-	// if we connect to a follower, we will retry until we found a leader
-	for {
-		resp, err = client.httpClient.Get(httpPath)
+	resp, err := sendRequest(httpPath, nil, nil)
 
-		if resp != nil {
-
-			if resp.StatusCode == http.StatusTemporaryRedirect {
-				httpPath = resp.Header.Get("Location")
-
-				resp.Body.Close()
-
-				if httpPath == "" {
-					return nil, errors.New("Cannot get redirection location")
-				}
-
-				// try to connect the leader
-				continue
-			} else {
-				break
-			}
-
-		}
-
+	if err != nil {
 		return nil, err
 	}
 

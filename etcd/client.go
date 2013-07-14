@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"time"
@@ -19,6 +20,12 @@ const (
 type Cluster struct {
 	Leader   string
 	Machines []string
+}
+
+type Machine struct {
+	hostName   string
+	raftPort   string
+	clientPort string
 }
 
 type Config struct {
@@ -159,4 +166,45 @@ func getHttpPath(s ...string) string {
 
 	httpPath = client.config.Scheme + httpPath
 	return httpPath
+}
+
+// Wrap GET, POST and internal error handling
+func sendRequest(httpPath string, req *http.Request, v *url.Values) (*http.Response, error) {
+
+	var resp *http.Response
+	var err error
+
+	// if we connect to a follower, we will retry until we found a leader
+	for {
+		if v == nil {
+			if req == nil {
+				resp, err = client.httpClient.Get(httpPath)
+			} else {
+				resp, err = client.httpClient.Do(req)
+			}
+		} else {
+			resp, err = client.httpClient.PostForm(httpPath, *v)
+		}
+
+		if resp != nil {
+
+			if resp.StatusCode == http.StatusTemporaryRedirect {
+				httpPath = resp.Header.Get("Location")
+				// TODO: update leader
+				resp.Body.Close()
+
+				if httpPath == "" {
+					return nil, errors.New("Cannot get redirection location")
+				}
+
+				// try to connect the leader
+				continue
+			} else {
+				break
+			}
+
+		}
+		return nil, err
+	}
+	return resp, nil
 }

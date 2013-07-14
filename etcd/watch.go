@@ -56,7 +56,7 @@ func watchOnce(key string, sinceIndex uint64, stop *chan bool) (*store.Response,
 	if sinceIndex == 0 {
 
 		// Get request if no index is given
-		resp, err = client.httpClient.Get(httpPath)
+		resp, err = sendRequest(httpPath, nil, nil)
 		if resp == nil {
 			return nil, err
 		}
@@ -71,11 +71,11 @@ func watchOnce(key string, sinceIndex uint64, stop *chan bool) (*store.Response,
 		for {
 
 			c := make(chan respAndErr)
-			resp, err = client.httpClient.PostForm(httpPath, v)
+			resp, err = sendRequest(httpPath, nil, &v)
 
 			if stop != nil {
 				go func() {
-					resp, err = client.httpClient.PostForm(httpPath, v)
+					resp, err = sendRequest(httpPath, nil, &v)
 
 					c <- respAndErr{resp, err}
 				}()
