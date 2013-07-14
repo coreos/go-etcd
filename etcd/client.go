@@ -168,6 +168,13 @@ func getHttpPath(s ...string) string {
 	return httpPath
 }
 
+func updateLeader(httpPath string) {
+	// httpPath 127.0.0.1:4001/v1...
+	// we want to have 127.0.0.1:4001
+	leader := strings.Split(httpPath, "/")[0]
+	client.cluster.Leader = leader
+}
+
 // Wrap GET, POST and internal error handling
 func sendRequest(httpPath string, req *http.Request, v *url.Values) (*http.Response, error) {
 
@@ -190,7 +197,9 @@ func sendRequest(httpPath string, req *http.Request, v *url.Values) (*http.Respo
 
 			if resp.StatusCode == http.StatusTemporaryRedirect {
 				httpPath = resp.Header.Get("Location")
-				// TODO: update leader
+
+				updateLeader(httpPath)
+
 				resp.Body.Close()
 
 				if httpPath == "" {
