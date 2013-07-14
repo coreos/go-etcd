@@ -99,21 +99,26 @@ func SetScheme(scheme int) (bool, error) {
 	return false, errors.New("Unknow Scheme")
 }
 
-// Try to connect from the given machine
-// Store the cluster information in the given machineFile
-func setCluster(machine string, machineFile string, confFile string) {
-
+// Try to sync from the given machine
+func SetCluster(machines []string) bool {
+	success := internalSyncCluster(machines)
+	return success
 }
 
 // Try to connect from the given machines in the file
-// Update the cluster information in the given machineFile
 func setClusterFromFile(machineFile string, confFile string) {
 
 }
 
-// sync machine information with the cluster
-func syncMachines() bool {
-	for _, machine := range client.cluster.Machines {
+// sycn cluster information using the existing machine list
+func SyncCluster() bool {
+	success := internalSyncCluster(client.cluster.Machines)
+	return success
+}
+
+// sync cluster information by providing machine list
+func internalSyncCluster(machines []string) bool {
+	for _, machine := range machines {
 		httpPath := createHttpPath(machine, "machines")
 		resp, err := client.httpClient.Get(httpPath)
 		if err != nil {
