@@ -8,7 +8,7 @@ import (
 	"net/url"
 )
 
-func TestAndSet(cluster string, key string, prevValue string, value string, ttl uint64) (*store.Response, bool, error) {
+func TestAndSet(key string, prevValue string, value string, ttl uint64) (*store.Response, bool, error) {
 	httpPath := getHttpPath("keys", key)
 
 	v := url.Values{}
