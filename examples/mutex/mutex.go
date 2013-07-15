@@ -8,6 +8,7 @@ import (
 var count = 0
 
 func main() {
+	etcd.SyncCluster()
 	c := make(chan bool, 10)
 	// set up a lock
 	etcd.Set("lock", "unlock", 0)
@@ -46,5 +47,13 @@ func lock() {
 }
 
 func unlock() {
-	etcd.Set("lock", "unlock", 0)
+	for {
+		_, err := etcd.Set("lock", "unlock", 0)
+		if err == nil{
+			return
+		}
+		fmt.Println(err)
+	}
 }
+
+
