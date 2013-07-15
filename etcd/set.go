@@ -27,8 +27,6 @@ func Set(key string, value string, ttl uint64) (*store.Response, error) {
 
 	b, err := ioutil.ReadAll(resp.Body)
 
-	fmt.Println(string(b))
-
 	resp.Body.Close()
 
 	if err != nil {

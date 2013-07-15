@@ -3,7 +3,6 @@ package etcd
 import (
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -122,7 +121,6 @@ func SyncCluster() bool {
 func internalSyncCluster(machines []string) bool {
 	for _, machine := range machines {
 		httpPath := createHttpPath(machine, "machines")
-		fmt.Println("sync send get to ", httpPath)
 		resp, err := client.httpClient.Get(httpPath)
 		if err != nil {
 			// try another machine in the cluster
@@ -171,7 +169,6 @@ func updateLeader(httpPath string) {
 
 	leader = strings.Split(httpPath, "/")[0]
 	client.cluster.Leader = leader
-	fmt.Println("update leader to", leader)
 }
 
 // Wrap GET, POST and internal error handling
@@ -184,8 +181,8 @@ func sendRequest(method string, _path string, body string) (*http.Response, erro
 	// if we connect to a follower, we will retry until we found a leader
 	for {
 
-		httpPath := client.config.Scheme + "://" + path.Join(client.cluster.Leader, version, _path)
-		fmt.Println("path ", httpPath)
+		httpPath := getHttpPath(_path)
+
 		if body == "" {
 
 			req, _ = http.NewRequest(method, httpPath, nil)
@@ -199,26 +196,22 @@ func sendRequest(method string, _path string, body string) (*http.Response, erro
 
 		// network error, change a machine!
 		if err != nil {
-			fmt.Println(err)
 			i := rand.Int31n(int32(len(client.cluster.Machines)))
 			client.cluster.Leader = client.cluster.Machines[i]
-
-			fmt.Println("network error change a machine to ", client.cluster.Leader)
 			continue
 		}
 
 		if resp != nil {
-
 			if resp.StatusCode == http.StatusTemporaryRedirect {
 				httpPath := resp.Header.Get("Location")
-
-				updateLeader(httpPath)
 
 				resp.Body.Close()
 
 				if httpPath == "" {
 					return nil, errors.New("Cannot get redirection location")
 				}
+
+				updateLeader(httpPath)
 
 				// try to connect the leader
 				continue
