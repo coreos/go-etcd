@@ -72,7 +72,7 @@ func init() {
 
 }
 
-func SetCert(cert string, key string) (bool, error) {
+func SetCertAndKey(cert string, key string) (bool, error) {
 
 	if cert != "" && key != "" {
 		tlsCert, err := tls.LoadX509KeyPair(cert, key)
