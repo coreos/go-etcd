@@ -8,6 +8,7 @@ import (
 var count = 0
 
 func main() {
+	etcd.SetScheme(etcd.HTTPS)
 	etcd.SyncCluster()
 	c := make(chan bool, 10)
 	// set up a lock

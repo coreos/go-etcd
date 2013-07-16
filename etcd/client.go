@@ -56,6 +56,9 @@ func init() {
 
 	tr := &http.Transport{
 		Dial: dialTimeout,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
 	}
 
 	client = Client{
