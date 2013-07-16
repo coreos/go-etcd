@@ -5,16 +5,15 @@ import (
 )
 
 func TestDelete(t *testing.T) {
-	cluster := "127.0.0.1:4001"
-	Set(cluster, "foo", "bar", 100)
-	result, err := Delete(cluster, "foo")
+	Set("foo", "bar", 100)
+	result, err := Delete("foo")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if result.PrevValue != "bar" || result.Value != "" || result.Exist != true {
-		t.Fatalf("Delete failed with %s %s %v", result.PrevValue,
-			result.Value, result.Exist)
+	if result.PrevValue != "bar" || result.Value != "" {
+		t.Fatalf("Delete failed with %s %s", result.PrevValue,
+			result.Value)
 	}
 
 }

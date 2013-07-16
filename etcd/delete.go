@@ -2,52 +2,16 @@ package etcd
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
-	"net/http"
 	"path"
 )
 
-func Delete(cluster string, key string) (*store.Response, error) {
-	httpPath := path.Join(cluster, "/", version, "/keys/", key)
+func Delete(key string) (*store.Response, error) {
 
-	//TODO: deal with https
-	httpPath = "http://" + httpPath
+	resp, err := sendRequest("DELETE", path.Join("keys", key), "")
 
-	client := &http.Client{}
-
-	var resp *http.Response
-	var err error
-
-	for {
-
-		req, err := http.NewRequest("DELETE", httpPath, nil)
-
-		resp, err = client.Do(req)
-
-		if resp != nil {
-
-			if resp.StatusCode == http.StatusTemporaryRedirect {
-
-				httpPath = resp.Header.Get("Location")
-
-				resp.Body.Close()
-
-				if httpPath == "" {
-					return nil, errors.New("Cannot get redirection location")
-				}
-
-				// try to connect the leader
-				continue
-			} else {
-
-				break
-
-			}
-
-		}
-
+	if err != nil {
 		return nil, err
 	}
 
