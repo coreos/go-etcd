@@ -7,8 +7,6 @@ import (
 	"io/ioutil"
 	"net/url"
 	"path"
-	//"strings"
-	//"net/http"
 )
 
 func Set(key string, value string, ttl uint64) (*store.Response, error) {

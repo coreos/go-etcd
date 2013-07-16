@@ -1,48 +1,65 @@
-package main 
+package main
 
 import (
-	"github.com/coreos/go-etcd/etcd"
 	"fmt"
+	"github.com/coreos/go-etcd/etcd"
 )
 
 var count = 0
 
 func main() {
-	etcd.SetScheme(etcd.HTTPS)
+
+	good := 0
+	bad := 0
+
+	//etcd.SetScheme(etcd.HTTPS)
 	etcd.SyncCluster()
 	c := make(chan bool, 10)
 	// set up a lock
 	etcd.Set("lock", "unlock", 0)
-	for i:=0; i < 10; i++ {
+	for i := 0; i < 10; i++ {
 		go t(i, c)
 	}
 
-	for i:=0; i< 10; i++ {
-		<-c
+	for i := 0; i < 10; i++ {
+		if <-c {
+			good++
+		} else {
+			bad++
+		}
 	}
+	fmt.Println("good: ", good, "bad: ", bad)
 }
 
-func t(num int,c chan bool) {
+func t(num int, c chan bool) {
 	for i := 0; i < 100; i++ {
-		lock()
-		// a stupid spin lock
-		count++
-		fmt.Println(num, " got the lock and update count to", count)
-		unlock()
-		fmt.Println(num, " released the lock")
+		if lock() {
+			// a stupid spin lock
+			count++
+			fmt.Println(num, " got the lock and update count to", count)
+			unlock()
+			fmt.Println(num, " released the lock")
+		} else {
+			c <- false
+			return
+		}
 	}
-	c<-true
+	c <- true
 }
-
 
 // A stupid spin lock
-func lock() {
+func lock() bool {
 	for {
-		_, success, _ := etcd.TestAndSet("lock", "unlock", "lock", 0)
+		_, success, err := etcd.TestAndSet("lock", "unlock", "lock", 0)
+
+		if err != nil {
+			return false
+		}
+
 		if success != true {
 			fmt.Println("tried lock failed!")
 		} else {
-			return
+			return true
 		}
 	}
 }
@@ -50,11 +67,9 @@ func lock() {
 func unlock() {
 	for {
 		_, err := etcd.Set("lock", "unlock", 0)
-		if err == nil{
+		if err == nil {
 			return
 		}
 		fmt.Println(err)
 	}
 }
-
-

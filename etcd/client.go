@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"io/ioutil"
-	"math/rand"
 	"net"
 	"net/http"
 	"path"
@@ -181,6 +180,7 @@ func sendRequest(method string, _path string, body string) (*http.Response, erro
 	var err error
 	var req *http.Request
 
+	retry := 0
 	// if we connect to a follower, we will retry until we found a leader
 	for {
 
@@ -199,8 +199,12 @@ func sendRequest(method string, _path string, body string) (*http.Response, erro
 
 		// network error, change a machine!
 		if err != nil {
-			i := rand.Int31n(int32(len(client.cluster.Machines)))
-			client.cluster.Leader = client.cluster.Machines[i]
+			retry++
+			if retry > 2*len(client.cluster.Machines) {
+				return nil, err
+			}
+			num := retry % len(client.cluster.Machines)
+			client.cluster.Leader = client.cluster.Machines[num]
 			continue
 		}
 
