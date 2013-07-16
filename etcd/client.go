@@ -86,6 +86,7 @@ func SetCertAndKey(cert string, key string) (bool, error) {
 		}
 
 		client.httpClient = &http.Client{Transport: tr}
+		return true, nil
 	}
 	return false, errors.New("Require both cert and key path")
 }

@@ -12,7 +12,17 @@ func main() {
 	good := 0
 	bad := 0
 
-	//etcd.SetScheme(etcd.HTTPS)
+
+	// open https
+	// etcd.SetScheme(etcd.HTTPS)
+
+	// add client cert
+	// success, err :=etcd.SetCertAndKey("key/me_cert.pem", "key/me_key.pem")
+
+	// if !success {
+	// 	fmt.Println(err)
+	// }
+
 	etcd.SyncCluster()
 	c := make(chan bool, 10)
 	// set up a lock
