@@ -2,65 +2,44 @@ package etcd
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
-	"net/http"
 	"path"
 )
 
-func Get(cluster string, key string) (*store.Response, error) {
+func Get(key string) (*[]store.Response, error) {
 
-	httpPath := path.Join(cluster, "/", version, "/keys/", key)
+	resp, err := sendRequest("GET", path.Join("keys", key), "")
 
-	//TODO: deal with https
-	httpPath = "http://" + httpPath
-
-	var resp *http.Response
-	var err error
-	// if we connect to a follower, we will retry until we found a leader
-	for {
-		resp, err = http.Get(httpPath)
-
-		if resp != nil {
-
-			if resp.StatusCode == http.StatusTemporaryRedirect {
-				httpPath = resp.Header.Get("Location")
-
-				resp.Body.Close()
-
-				if httpPath == "" {
-					return nil, errors.New("Cannot get redirection location")
-				}
-
-				// try to connect the leader
-				continue
-			} else {
-				break
-			}
-
-		}
-
+	if err != nil {
 		return nil, err
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)
 
+	resp.Body.Close()
+
 	if err != nil {
-		resp.Body.Close()
 		return nil, err
 	}
 
+	var results []store.Response
 	var result store.Response
 
 	err = json.Unmarshal(b, &result)
 
 	if err != nil {
-		resp.Body.Close()
-		return nil, err
-	}
-	resp.Body.Close()
+		err = json.Unmarshal(b, &results)
 
-	return &result, nil
+		if err != nil {
+			return nil, err
+		}
+
+	} else {
+		results = make([]store.Response, 1)
+		results[0] = result
+	}
+
+	return &results, nil
 
 }
