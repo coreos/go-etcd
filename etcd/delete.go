@@ -4,17 +4,16 @@ import (
 	"encoding/json"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
-	"net/http"
+	"path"
 )
 
 func Delete(key string) (*store.Response, error) {
 
-	httpPath := getHttpPath("keys", key)
+	resp, err := sendRequest("DELETE", path.Join("keys", key), "")
 
-	// this cannot fail
-	req, _ := http.NewRequest("DELETE", httpPath, nil)
-
-	resp, err := sendRequest(httpPath, req, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	b, err := ioutil.ReadAll(resp.Body)
 

@@ -4,13 +4,12 @@ import (
 	"encoding/json"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
+	"path"
 )
 
 func Get(key string) (*[]store.Response, error) {
 
-	httpPath := getHttpPath("keys", key)
-
-	resp, err := sendRequest(httpPath, nil, nil)
+	resp, err := sendRequest("GET", path.Join("keys", key), "")
 
 	if err != nil {
 		return nil, err
@@ -18,8 +17,9 @@ func Get(key string) (*[]store.Response, error) {
 
 	b, err := ioutil.ReadAll(resp.Body)
 
+	resp.Body.Close()
+
 	if err != nil {
-		resp.Body.Close()
 		return nil, err
 	}
 
@@ -32,7 +32,6 @@ func Get(key string) (*[]store.Response, error) {
 		err = json.Unmarshal(b, &results)
 
 		if err != nil {
-			resp.Body.Close()
 			return nil, err
 		}
 
@@ -40,8 +39,6 @@ func Get(key string) (*[]store.Response, error) {
 		results = make([]store.Response, 1)
 		results[0] = result
 	}
-
-	resp.Body.Close()
 
 	return &results, nil
 

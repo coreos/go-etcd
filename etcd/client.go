@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"net/url"
 	"path"
 	"strings"
 	"time"
@@ -20,12 +19,6 @@ const (
 type Cluster struct {
 	Leader   string
 	Machines []string
-}
-
-type Machine struct {
-	hostName   string
-	raftPort   string
-	clientPort string
 }
 
 type Config struct {
@@ -55,13 +48,16 @@ func init() {
 
 	config := Config{
 		// default use http
-		Scheme: "http://",
+		Scheme: "http",
 		// default timeout is one second
 		Timeout: time.Second,
 	}
 
 	tr := &http.Transport{
 		Dial: dialTimeout,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
 	}
 
 	client = Client{
@@ -72,7 +68,7 @@ func init() {
 
 }
 
-func SetCert(cert string, key string) (bool, error) {
+func SetCertAndKey(cert string, key string) (bool, error) {
 
 	if cert != "" && key != "" {
 		tlsCert, err := tls.LoadX509KeyPair(cert, key)
@@ -90,17 +86,18 @@ func SetCert(cert string, key string) (bool, error) {
 		}
 
 		client.httpClient = &http.Client{Transport: tr}
+		return true, nil
 	}
 	return false, errors.New("Require both cert and key path")
 }
 
 func SetScheme(scheme int) (bool, error) {
 	if scheme == HTTP {
-		client.config.Scheme = "http://"
+		client.config.Scheme = "http"
 		return true, nil
 	}
 	if scheme == HTTPS {
-		client.config.Scheme = "https://"
+		client.config.Scheme = "https"
 		return true, nil
 	}
 	return false, errors.New("Unknow Scheme")
@@ -148,7 +145,7 @@ func internalSyncCluster(machines []string) bool {
 // serverName should contain both hostName and port
 func createHttpPath(serverName string, _path string) string {
 	httpPath := path.Join(serverName, _path)
-	httpPath = client.config.Scheme + httpPath
+	httpPath = client.config.Scheme + "://" + httpPath
 	return httpPath
 }
 
@@ -164,47 +161,65 @@ func getHttpPath(s ...string) string {
 		httpPath = path.Join(httpPath, seg)
 	}
 
-	httpPath = client.config.Scheme + httpPath
+	httpPath = client.config.Scheme + "://" + httpPath
 	return httpPath
 }
 
 func updateLeader(httpPath string) {
-	// httpPath 127.0.0.1:4001/v1...
+	// httpPath http://127.0.0.1:4001/v1...
+	leader := strings.Split(httpPath, "://")[1]
 	// we want to have 127.0.0.1:4001
-	leader := strings.Split(httpPath, "/")[0]
+
+	leader = strings.Split(httpPath, "/")[0]
 	client.cluster.Leader = leader
 }
 
 // Wrap GET, POST and internal error handling
-func sendRequest(httpPath string, req *http.Request, v *url.Values) (*http.Response, error) {
+func sendRequest(method string, _path string, body string) (*http.Response, error) {
 
 	var resp *http.Response
 	var err error
+	var req *http.Request
 
+	retry := 0
 	// if we connect to a follower, we will retry until we found a leader
 	for {
-		if v == nil {
-			if req == nil {
-				resp, err = client.httpClient.Get(httpPath)
-			} else {
-				resp, err = client.httpClient.Do(req)
-			}
+
+		httpPath := getHttpPath(_path)
+
+		if body == "" {
+
+			req, _ = http.NewRequest(method, httpPath, nil)
+
 		} else {
-			resp, err = client.httpClient.PostForm(httpPath, *v)
+			req, _ = http.NewRequest(method, httpPath, strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+		}
+
+		resp, err = client.httpClient.Do(req)
+
+		// network error, change a machine!
+		if err != nil {
+			retry++
+			if retry > 2*len(client.cluster.Machines) {
+				return nil, err
+			}
+			num := retry % len(client.cluster.Machines)
+			client.cluster.Leader = client.cluster.Machines[num]
+			continue
 		}
 
 		if resp != nil {
-
 			if resp.StatusCode == http.StatusTemporaryRedirect {
-				httpPath = resp.Header.Get("Location")
-
-				updateLeader(httpPath)
+				httpPath := resp.Header.Get("Location")
 
 				resp.Body.Close()
 
 				if httpPath == "" {
 					return nil, errors.New("Cannot get redirection location")
 				}
+
+				updateLeader(httpPath)
 
 				// try to connect the leader
 				continue

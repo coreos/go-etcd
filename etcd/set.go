@@ -6,12 +6,10 @@ import (
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/url"
+	"path"
 )
 
 func Set(key string, value string, ttl uint64) (*store.Response, error) {
-
-	httpPath := getHttpPath("keys", key)
-
 	v := url.Values{}
 	v.Set("value", value)
 
@@ -19,12 +17,17 @@ func Set(key string, value string, ttl uint64) (*store.Response, error) {
 		v.Set("ttl", fmt.Sprintf("%v", ttl))
 	}
 
-	resp, err := sendRequest(httpPath, nil, &v)
+	resp, err := sendRequest("POST", path.Join("keys", key), v.Encode())
+
+	if err != nil {
+		return nil, err
+	}
 
 	b, err := ioutil.ReadAll(resp.Body)
 
+	resp.Body.Close()
+
 	if err != nil {
-		resp.Body.Close()
 		return nil, err
 	}
 
@@ -33,10 +36,8 @@ func Set(key string, value string, ttl uint64) (*store.Response, error) {
 	err = json.Unmarshal(b, &result)
 
 	if err != nil {
-		resp.Body.Close()
 		return nil, err
 	}
-	resp.Body.Close()
 
 	return &result, nil
 
