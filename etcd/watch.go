@@ -33,7 +33,7 @@ func Watch(prefix string, sinceIndex uint64, receiver chan *store.Response, stop
 		for {
 			resp, err := watchOnce(prefix, sinceIndex, stop)
 			if resp != nil {
-				sinceIndex = resp.Index
+				sinceIndex = resp.Index + 1
 				receiver <- resp
 			} else {
 				return nil, err
