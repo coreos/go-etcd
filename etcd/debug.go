@@ -1,11 +1,19 @@
 package etcd
 
 import (
-	"github.com/ccding/go-logging/logging"
+	"github.com/ccding/go-logging"
 )
 
 var logger, _ = logging.SimpleLogger("go-etcd")
 
 func init() {
-	logger.SetLevel(logging.ERROR)
+	logger.SetLevel(logging.FATAL)
+}
+
+func OpenDebug() {
+	logger.SetLevel(logging.NOTSET)
+}
+
+func CloseDebug() {
+	logger.SetLevel(logging.FATAL)
 }
