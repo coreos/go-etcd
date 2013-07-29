@@ -38,7 +38,6 @@ var client Client
 
 // Setup a basic conf and cluster
 func init() {
-
 	// default leader and machines
 	cluster := Cluster{
 		Leader:   "0.0.0.0:4001",
@@ -136,6 +135,7 @@ func internalSyncCluster(machines []string) bool {
 			}
 			// update Machines List
 			client.cluster.Machines = strings.Split(string(b), ",")
+			logger.Debug("sync.machines ", client.cluster.Machines)
 			return true
 		}
 	}
@@ -187,7 +187,7 @@ func sendRequest(method string, _path string, body string) (*http.Response, erro
 	for {
 
 		httpPath := getHttpPath(_path)
-
+		logger.Debug("send.request.to ", httpPath)
 		if body == "" {
 
 			req, _ = http.NewRequest(method, httpPath, nil)
@@ -199,15 +199,17 @@ func sendRequest(method string, _path string, body string) (*http.Response, erro
 
 		resp, err = client.httpClient.Do(req)
 
+		logger.Debug("recv.response.from ", httpPath)
 		// network error, change a machine!
 		if err != nil {
 			retry++
 			if retry > 2*len(client.cluster.Machines) {
-				return nil, err
+				return nil, errors.New("Cannot reach servers")
 			}
 			num := retry % len(client.cluster.Machines)
 			logger.Debug("update.leader[", client.cluster.Leader, ",", client.cluster.Machines[num], "]")
 			client.cluster.Leader = client.cluster.Machines[num]
+			time.Sleep(time.Millisecond * 200)
 			continue
 		}
 
@@ -222,14 +224,23 @@ func sendRequest(method string, _path string, body string) (*http.Response, erro
 				}
 
 				updateLeader(httpPath)
-
+				logger.Debug("send.redirect")
 				// try to connect the leader
 				continue
+			} else if resp.StatusCode == http.StatusInternalServerError {
+				retry++
+				if retry > 2*len(client.cluster.Machines) {
+					return nil, errors.New("Cannot reach servers")
+				}
+				resp.Body.Close()
+				continue
 			} else {
+				logger.Debug("send.return.response ", httpPath)
 				break
 			}
 
 		}
+		logger.Debug("error.from ", httpPath, " ", err.Error())
 		return nil, err
 	}
 	return resp, nil

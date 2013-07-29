@@ -4,8 +4,8 @@ import (
 	"github.com/ccding/go-logging/logging"
 )
 
-var logger = logging.SimpleLogger("go-etcd")
+var logger, _ = logging.SimpleLogger("go-etcd")
 
 func init() {
-	logger.SetLevel(logging.NOTSET)
+	logger.SetLevel(logging.ERROR)
 }
