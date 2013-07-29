@@ -10,7 +10,7 @@ import (
 )
 
 func TestAndSet(key string, prevValue string, value string, ttl uint64) (*store.Response, bool, error) {
-
+	logger.Debug("testAndSet ", key, ",[", prevValue, "],", value, ",ttl:", ttl, " [", client.cluster.Leader, "]")
 	v := url.Values{}
 	v.Set("value", value)
 	v.Set("prevValue", prevValue)

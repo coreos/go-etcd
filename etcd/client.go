@@ -170,7 +170,8 @@ func updateLeader(httpPath string) {
 	leader := strings.Split(httpPath, "://")[1]
 	// we want to have 127.0.0.1:4001
 
-	leader = strings.Split(httpPath, "/")[0]
+	leader = strings.Split(leader, "/")[0]
+	logger.Debug("update.leader[", client.cluster.Leader, ",", leader, "]")
 	client.cluster.Leader = leader
 }
 
@@ -205,6 +206,7 @@ func sendRequest(method string, _path string, body string) (*http.Response, erro
 				return nil, err
 			}
 			num := retry % len(client.cluster.Machines)
+			logger.Debug("update.leader[", client.cluster.Leader, ",", client.cluster.Machines[num], "]")
 			client.cluster.Leader = client.cluster.Machines[num]
 			continue
 		}

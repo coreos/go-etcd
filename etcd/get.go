@@ -8,7 +8,7 @@ import (
 )
 
 func Get(key string) (*[]store.Response, error) {
-
+	logger.Debug("get ", key, " [", client.cluster.Leader, "]")
 	resp, err := sendRequest("GET", path.Join("keys", key), "")
 
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 )
 
 func Set(key string, value string, ttl uint64) (*store.Response, error) {
+	logger.Debug("set ", key, ",", value, ",ttl:", ttl, " [", client.cluster.Leader, "]")
 	v := url.Values{}
 	v.Set("value", value)
 
