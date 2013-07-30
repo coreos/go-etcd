@@ -27,8 +27,8 @@ func Get(key string) (*[]store.Response, error) {
 
 }
 
-// Get the value of the key from a given machine address
-// If the given machine is not available, return error
+// GetTo gets the value of the key from a given machine address.
+// If the given machine is not available it returns an error.
 // Mainly use for testing purpose
 func GetFrom(key string, addr string) (*[]store.Response, error) {
 	httpPath := createHttpPath(addr, path.Join(version, "keys", key))

@@ -32,9 +32,9 @@ func Set(key string, value string, ttl uint64) (*store.Response, error) {
 
 }
 
-// Set the value of the key to a given machine address
-// If the given machine is not available or is not leader, err will be returned
-// Mainly use for testing purpose
+// SetTo sets the value of the key to a given machine address.
+// If the given machine is not available or is not leader it returns an error
+// Mainly use for testing purpose.
 func SetTo(key string, value string, ttl uint64, addr string) (*store.Response, error) {
 	v := url.Values{}
 	v.Set("value", value)
