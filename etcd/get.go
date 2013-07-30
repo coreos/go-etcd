@@ -23,7 +23,7 @@ func Get(key string) (*[]store.Response, error) {
 		return nil, err
 	}
 
-	return convertResponse(b)
+	return convertGetResponse(b)
 
 }
 
@@ -43,11 +43,11 @@ func GetFrom(key string, addr string) (*[]store.Response, error) {
 
 	resp.Body.Close()
 
-	return convertResponse(b)
+	return convertGetResponse(b)
 }
 
 // convert byte stream to response
-func convertResponse(b []byte) (*[]store.Response, error) {
+func convertGetResponse(b []byte) (*[]store.Response, error) {
 
 	var results []store.Response
 	var result store.Response
