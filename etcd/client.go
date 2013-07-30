@@ -171,7 +171,7 @@ func updateLeader(httpPath string) {
 	// we want to have 127.0.0.1:4001
 
 	leader = strings.Split(leader, "/")[0]
-	logger.Debug("update.leader[", client.cluster.Leader, ",", leader, "]")
+	logger.Debugf("update.leader[%s,%s]", client.cluster.Leader, leader)
 	client.cluster.Leader = leader
 }
 

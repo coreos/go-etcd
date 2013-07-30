@@ -24,7 +24,7 @@ type respAndErr struct {
 // If a stop channel is given, client can close long-term watch using the stop channel
 
 func Watch(prefix string, sinceIndex uint64, receiver chan *store.Response, stop *chan bool) (*store.Response, error) {
-	logger.Debug("watch ", prefix, " [", client.cluster.Leader, "]")
+	logger.Debugf("watch %s [%s]", prefix, client.cluster.Leader)
 	if receiver == nil {
 		return watchOnce(prefix, sinceIndex, stop)
 
