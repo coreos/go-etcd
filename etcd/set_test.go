@@ -26,4 +26,15 @@ func TestSet(t *testing.T) {
 		}
 		t.Fatalf("Set 2 failed with %s %s %v", result.Key, result.Value, result.TTL)
 	}
+
+	result, err = SetTo("toFoo", "bar", 100, "0.0.0.0:4001")
+
+	if err != nil || result.Key != "/toFoo" || result.Value != "bar" || result.TTL != 99 {
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		t.Fatalf("SetTo failed with %s %s %v", result.Key, result.Value, result.TTL)
+	}
+
 }
