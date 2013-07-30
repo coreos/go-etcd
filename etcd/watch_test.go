@@ -54,7 +54,6 @@ func setLoop(value string) {
 
 func reciver(c chan *store.Response, stop *chan bool) {
 	for i := 0; i < 10; i++ {
-		fmt.Println(i)
 		<-c
 	}
 	(*stop) <- true
