@@ -19,11 +19,11 @@ func main() {
 	for i:=0; i< 200; i++ {
 		<-c
 	}
-	fmt.Println(time.Now().Sub(start), ": ", 200 * 100, "commands")
+	fmt.Println(time.Now().Sub(start), ": ", 200 * 10000, "commands")
 }
 
 func t(num int,c chan bool) {
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10000; i++ {
 		str := fmt.Sprintf("foo_%d",num * i)
 		etcd.Set(str, "10", 0)
 	}
