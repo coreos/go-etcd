@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	"path"
 )
@@ -27,6 +28,14 @@ func Set(key string, value string, ttl uint64) (*store.Response, error) {
 	b, err := ioutil.ReadAll(resp.Body)
 
 	resp.Body.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf(string(b))
+	}
 
 	return convertSetResponse(b)
 
