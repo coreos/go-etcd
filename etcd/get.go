@@ -2,8 +2,10 @@ package etcd
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
+	"net/http"
 	"path"
 )
 
@@ -21,6 +23,10 @@ func Get(key string) ([]*store.Response, error) {
 
 	if err != nil {
 		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf(string(b))
 	}
 
 	return convertGetResponse(b)
@@ -42,6 +48,14 @@ func GetFrom(key string, addr string) ([]*store.Response, error) {
 	b, err := ioutil.ReadAll(resp.Body)
 
 	resp.Body.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf(string(b))
+	}
 
 	return convertGetResponse(b)
 }

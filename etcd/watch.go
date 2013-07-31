@@ -102,6 +102,10 @@ func watchOnce(key string, sinceIndex uint64, stop *chan bool) (*store.Response,
 		return nil, err
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf(string(b))
+	}
+
 	var result store.Response
 
 	err = json.Unmarshal(b, &result)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	"path"
 )
@@ -32,6 +33,10 @@ func TestAndSet(key string, prevValue string, value string, ttl uint64) (*store.
 	if err != nil {
 
 		return nil, false, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, false, fmt.Errorf(string(b))
 	}
 
 	var result store.Response
