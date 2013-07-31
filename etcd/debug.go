@@ -1,7 +1,7 @@
 package etcd
 
 import (
-	"github.com/ccding/go-logging"
+	"github.com/ccding/go-logging/logging"
 )
 
 var logger, _ = logging.SimpleLogger("go-etcd")
