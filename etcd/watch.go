@@ -16,13 +16,12 @@ type respAndErr struct {
 	err  error
 }
 
-// Watch any change under the given prefix
+// Watch any change under the given prefix.
 // When a sinceIndex is given, watch will try to scan from that index to the last index
-// and will return any changes under the given prefix during the histroy
-// If a receiver channel is given, it will be a long-term watch. Watch will block at the
-// channel. And after someone receive the channel, it will go on to watch that prefix.
-// If a stop channel is given, client can close long-term watch using the stop channel
-
+// and will return any changes under the given prefix during the history.
+// If a receiver channel is given, it will be a long-term watch. Watch will block on the
+// channel. And after someone receives on the channel, it will go on to watch that prefix.
+// If a stop channel is given, the client may close the long-term watch using the stop channel.
 func Watch(prefix string, sinceIndex uint64, receiver chan *store.Response, stop *chan bool) (*store.Response, error) {
 	logger.Debugf("watch %s [%s]", prefix, client.cluster.Leader)
 	if receiver == nil {
@@ -40,13 +39,11 @@ func Watch(prefix string, sinceIndex uint64, receiver chan *store.Response, stop
 		}
 	}
 
-	// for complier
 	return nil, nil
-
 }
 
-// helper func
-// return when there is change under the given prefix
+// Helper function.
+// Return when there is a change under the given prefix.
 func watchOnce(key string, sinceIndex uint64, stop *chan bool) (*store.Response, error) {
 
 	var resp *http.Response

@@ -33,9 +33,9 @@ func Get(key string) ([]*store.Response, error) {
 
 }
 
-// GetTo gets the value of the key from a given machine address.
-// If the given machine is not available it returns an error.
-// Mainly use for testing purpose
+// GetFrom gets the value of the key from a given machine address.
+// If the given machine is not available, it returns an error.
+// Mainly used for testing purposes.
 func GetFrom(key string, addr string) ([]*store.Response, error) {
 	httpPath := createHttpPath(addr, path.Join(version, "keys", key))
 
@@ -60,7 +60,7 @@ func GetFrom(key string, addr string) ([]*store.Response, error) {
 	return convertGetResponse(b)
 }
 
-// convert byte stream to response
+// Convert byte stream to response.
 func convertGetResponse(b []byte) ([]*store.Response, error) {
 
 	var results []*store.Response
