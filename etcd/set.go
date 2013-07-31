@@ -67,7 +67,7 @@ func SetTo(key string, value string, ttl uint64, addr string) (*store.Response, 
 	return convertSetResponse(b)
 }
 
-// convert byte stream to response
+// Convert byte stream to response.
 func convertSetResponse(b []byte) (*store.Response, error) {
 	var result store.Response
 

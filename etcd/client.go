@@ -36,7 +36,7 @@ type Client struct {
 
 var client Client
 
-// Setup a basic conf and cluster
+// Setup a basic conf and cluster.
 func init() {
 	// default leader and machines
 	cluster := Cluster{
@@ -99,27 +99,27 @@ func SetScheme(scheme int) (bool, error) {
 		client.config.Scheme = "https"
 		return true, nil
 	}
-	return false, errors.New("Unknow Scheme")
+	return false, errors.New("Unknown Scheme")
 }
 
-// Try to sync from the given machine
+// Try to sync from the given machine.
 func SetCluster(machines []string) bool {
 	success := internalSyncCluster(machines)
 	return success
 }
 
-// Try to connect from the given machines in the file
+// Try to connect from the given machines in the file.
 func setClusterFromFile(machineFile string, confFile string) {
 
 }
 
-// sycn cluster information using the existing machine list
+// Sync cluster information using the existing machine list.
 func SyncCluster() bool {
 	success := internalSyncCluster(client.cluster.Machines)
 	return success
 }
 
-// sync cluster information by providing machine list
+// Sync cluster information by providing machine list.
 func internalSyncCluster(machines []string) bool {
 	for _, machine := range machines {
 		httpPath := createHttpPath(machine, "machines")
@@ -142,14 +142,14 @@ func internalSyncCluster(machines []string) bool {
 	return false
 }
 
-// serverName should contain both hostName and port
+// serverName should contain both hostName and port.
 func createHttpPath(serverName string, _path string) string {
 	httpPath := path.Join(serverName, _path)
 	httpPath = client.config.Scheme + "://" + httpPath
 	return httpPath
 }
 
-// Dial with timeout
+// Dial with timeout.
 func dialTimeout(network, addr string) (net.Conn, error) {
 	return net.DialTimeout(network, addr, (client.config.Timeout))
 }
@@ -175,7 +175,7 @@ func updateLeader(httpPath string) {
 	client.cluster.Leader = leader
 }
 
-// Wrap GET, POST and internal error handling
+// Wrap GET, POST and internal error handling.
 func sendRequest(method string, _path string, body string) (*http.Response, error) {
 
 	var resp *http.Response
