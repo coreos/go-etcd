@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -21,6 +22,8 @@ func TestGet(t *testing.T) {
 	}
 
 	results, err = Get("goo")
+
+	fmt.Println(err)
 
 	if err == nil {
 		t.Fatalf("should not be able to get non-exist key")

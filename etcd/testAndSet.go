@@ -36,7 +36,11 @@ func TestAndSet(key string, prevValue string, value string, ttl uint64) (*store.
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, false, fmt.Errorf(string(b))
+		var err EtcdError
+
+		json.Unmarshal(b, &err)
+
+		return nil, false, err
 	}
 
 	var result store.Response

@@ -26,7 +26,11 @@ func Get(key string) ([]*store.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf(string(b))
+		var err EtcdError
+
+		json.Unmarshal(b, &err)
+
+		return nil, err
 	}
 
 	return convertGetResponse(b)
@@ -54,7 +58,11 @@ func GetFrom(key string, addr string) ([]*store.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf(string(b))
+		var err EtcdError
+
+		json.Unmarshal(b, &err)
+
+		return nil, err
 	}
 
 	return convertGetResponse(b)
