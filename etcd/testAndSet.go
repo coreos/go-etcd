@@ -36,7 +36,7 @@ func TestAndSet(key string, prevValue string, value string, ttl uint64) (*store.
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, false, fmt.Errorf(string(b))
+		return nil, false, handleError(b)
 	}
 
 	var result store.Response

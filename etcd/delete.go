@@ -2,7 +2,6 @@ package etcd
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
@@ -26,7 +25,7 @@ func Delete(key string) (*store.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf(string(b))
+		return nil, handleError(b)
 	}
 
 	var result store.Response

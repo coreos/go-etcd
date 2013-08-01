@@ -34,7 +34,8 @@ func Set(key string, value string, ttl uint64) (*store.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf(string(b))
+
+		return nil, handleError(b)
 	}
 
 	return convertSetResponse(b)
@@ -63,6 +64,14 @@ func SetTo(key string, value string, ttl uint64, addr string) (*store.Response, 
 	b, err := ioutil.ReadAll(resp.Body)
 
 	resp.Body.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, handleError(b)
+	}
 
 	return convertSetResponse(b)
 }
