@@ -2,7 +2,6 @@ package etcd
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
@@ -26,11 +25,8 @@ func Get(key string) ([]*store.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		var err EtcdError
 
-		json.Unmarshal(b, &err)
-
-		return nil, err
+		return nil, handleError(b)
 	}
 
 	return convertGetResponse(b)
@@ -58,11 +54,7 @@ func GetFrom(key string, addr string) ([]*store.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		var err EtcdError
-
-		json.Unmarshal(b, &err)
-
-		return nil, err
+		return nil, handleError(b)
 	}
 
 	return convertGetResponse(b)

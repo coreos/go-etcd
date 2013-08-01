@@ -34,11 +34,8 @@ func Set(key string, value string, ttl uint64) (*store.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		var err EtcdError
 
-		json.Unmarshal(b, &err)
-
-		return nil, err
+		return nil, handleError(b)
 	}
 
 	return convertSetResponse(b)
@@ -73,11 +70,7 @@ func SetTo(key string, value string, ttl uint64, addr string) (*store.Response, 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		var err EtcdError
-
-		json.Unmarshal(b, &err)
-
-		return nil, err
+		return nil, handleError(b)
 	}
 
 	return convertSetResponse(b)
