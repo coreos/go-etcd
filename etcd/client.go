@@ -34,10 +34,9 @@ type Client struct {
 	httpClient *http.Client
 }
 
-var client Client
+// Setup a basic conf and cluster
+func NewClient() *Client {
 
-// Setup a basic conf and cluster.
-func init() {
 	// default leader and machines
 	cluster := Cluster{
 		Leader:   "0.0.0.0:4001",
@@ -59,7 +58,7 @@ func init() {
 		},
 	}
 
-	client = Client{
+	return &Client{
 		cluster:    cluster,
 		config:     config,
 		httpClient: &http.Client{Transport: tr},
@@ -67,7 +66,7 @@ func init() {
 
 }
 
-func SetCertAndKey(cert string, key string) (bool, error) {
+func (c *Client) SetCertAndKey(cert string, key string) (bool, error) {
 
 	if cert != "" && key != "" {
 		tlsCert, err := tls.LoadX509KeyPair(cert, key)
@@ -84,46 +83,41 @@ func SetCertAndKey(cert string, key string) (bool, error) {
 			Dial: dialTimeout,
 		}
 
-		client.httpClient = &http.Client{Transport: tr}
+		c.httpClient = &http.Client{Transport: tr}
 		return true, nil
 	}
 	return false, errors.New("Require both cert and key path")
 }
 
-func SetScheme(scheme int) (bool, error) {
+func (c *Client) SetScheme(scheme int) (bool, error) {
 	if scheme == HTTP {
-		client.config.Scheme = "http"
+		c.config.Scheme = "http"
 		return true, nil
 	}
 	if scheme == HTTPS {
-		client.config.Scheme = "https"
+		c.config.Scheme = "https"
 		return true, nil
 	}
 	return false, errors.New("Unknown Scheme")
 }
 
-// Try to sync from the given machine.
-func SetCluster(machines []string) bool {
-	success := internalSyncCluster(machines)
+// Try to sync from the given machine
+func (c *Client) SetCluster(machines []string) bool {
+	success := c.internalSyncCluster(machines)
 	return success
 }
 
-// Try to connect from the given machines in the file.
-func setClusterFromFile(machineFile string, confFile string) {
-
-}
-
-// Sync cluster information using the existing machine list.
-func SyncCluster() bool {
-	success := internalSyncCluster(client.cluster.Machines)
+// sycn cluster information using the existing machine list
+func (c *Client) SyncCluster() bool {
+	success := c.internalSyncCluster(c.cluster.Machines)
 	return success
 }
 
-// Sync cluster information by providing machine list.
-func internalSyncCluster(machines []string) bool {
+// sync cluster information by providing machine list
+func (c *Client) internalSyncCluster(machines []string) bool {
 	for _, machine := range machines {
-		httpPath := createHttpPath(machine, "machines")
-		resp, err := client.httpClient.Get(httpPath)
+		httpPath := c.createHttpPath(machine, "machines")
+		resp, err := c.httpClient.Get(httpPath)
 		if err != nil {
 			// try another machine in the cluster
 			continue
@@ -134,49 +128,49 @@ func internalSyncCluster(machines []string) bool {
 				continue
 			}
 			// update Machines List
-			client.cluster.Machines = strings.Split(string(b), ",")
-			logger.Debug("sync.machines ", client.cluster.Machines)
+			c.cluster.Machines = strings.Split(string(b), ",")
+			logger.Debug("sync.machines ", c.cluster.Machines)
 			return true
 		}
 	}
 	return false
 }
 
-// serverName should contain both hostName and port.
-func createHttpPath(serverName string, _path string) string {
+// serverName should contain both hostName and port
+func (c *Client) createHttpPath(serverName string, _path string) string {
 	httpPath := path.Join(serverName, _path)
-	httpPath = client.config.Scheme + "://" + httpPath
+	httpPath = c.config.Scheme + "://" + httpPath
 	return httpPath
 }
 
 // Dial with timeout.
 func dialTimeout(network, addr string) (net.Conn, error) {
-	return net.DialTimeout(network, addr, (client.config.Timeout))
+	return net.DialTimeout(network, addr, time.Second)
 }
 
-func getHttpPath(s ...string) string {
-	httpPath := path.Join(client.cluster.Leader, version)
+func (c *Client) getHttpPath(s ...string) string {
+	httpPath := path.Join(c.cluster.Leader, version)
 
 	for _, seg := range s {
 		httpPath = path.Join(httpPath, seg)
 	}
 
-	httpPath = client.config.Scheme + "://" + httpPath
+	httpPath = c.config.Scheme + "://" + httpPath
 	return httpPath
 }
 
-func updateLeader(httpPath string) {
+func (c *Client) updateLeader(httpPath string) {
 	// httpPath http://127.0.0.1:4001/v1...
 	leader := strings.Split(httpPath, "://")[1]
 	// we want to have 127.0.0.1:4001
 
 	leader = strings.Split(leader, "/")[0]
-	logger.Debugf("update.leader[%s,%s]", client.cluster.Leader, leader)
-	client.cluster.Leader = leader
+	logger.Debugf("update.leader[%s,%s]", c.cluster.Leader, leader)
+	c.cluster.Leader = leader
 }
 
-// Wrap GET, POST and internal error handling.
-func sendRequest(method string, _path string, body string) (*http.Response, error) {
+// Wrap GET, POST and internal error handling
+func (c *Client) sendRequest(method string, _path string, body string) (*http.Response, error) {
 
 	var resp *http.Response
 	var err error
@@ -186,7 +180,7 @@ func sendRequest(method string, _path string, body string) (*http.Response, erro
 	// if we connect to a follower, we will retry until we found a leader
 	for {
 
-		httpPath := getHttpPath(_path)
+		httpPath := c.getHttpPath(_path)
 		logger.Debug("send.request.to ", httpPath)
 		if body == "" {
 
@@ -197,18 +191,18 @@ func sendRequest(method string, _path string, body string) (*http.Response, erro
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
 		}
 
-		resp, err = client.httpClient.Do(req)
+		resp, err = c.httpClient.Do(req)
 
 		logger.Debug("recv.response.from ", httpPath)
 		// network error, change a machine!
 		if err != nil {
 			retry++
-			if retry > 2*len(client.cluster.Machines) {
+			if retry > 2*len(c.cluster.Machines) {
 				return nil, errors.New("Cannot reach servers")
 			}
-			num := retry % len(client.cluster.Machines)
-			logger.Debug("update.leader[", client.cluster.Leader, ",", client.cluster.Machines[num], "]")
-			client.cluster.Leader = client.cluster.Machines[num]
+			num := retry % len(c.cluster.Machines)
+			logger.Debug("update.leader[", c.cluster.Leader, ",", c.cluster.Machines[num], "]")
+			c.cluster.Leader = c.cluster.Machines[num]
 			time.Sleep(time.Millisecond * 200)
 			continue
 		}
@@ -223,13 +217,13 @@ func sendRequest(method string, _path string, body string) (*http.Response, erro
 					return nil, errors.New("Cannot get redirection location")
 				}
 
-				updateLeader(httpPath)
+				c.updateLeader(httpPath)
 				logger.Debug("send.redirect")
 				// try to connect the leader
 				continue
 			} else if resp.StatusCode == http.StatusInternalServerError {
 				retry++
-				if retry > 2*len(client.cluster.Machines) {
+				if retry > 2*len(c.cluster.Machines) {
 					return nil, errors.New("Cannot reach servers")
 				}
 				resp.Body.Close()

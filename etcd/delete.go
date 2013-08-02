@@ -2,16 +2,15 @@ package etcd
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
 	"path"
 )
 
-func Delete(key string) (*store.Response, error) {
+func (c *Client) Delete(key string) (*store.Response, error) {
 
-	resp, err := sendRequest("DELETE", path.Join("keys", key), "")
+	resp, err := c.sendRequest("DELETE", path.Join("keys", key), "")
 
 	if err != nil {
 		return nil, err
@@ -26,7 +25,7 @@ func Delete(key string) (*store.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf(string(b))
+		return nil, handleError(b)
 	}
 
 	var result store.Response

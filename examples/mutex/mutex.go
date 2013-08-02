@@ -12,27 +12,18 @@ func main() {
 	good := 0
 	bad := 0
 
-
-	// open https
-	// etcd.SetScheme(etcd.HTTPS)
-
-	// add client cert
-	// success, err :=etcd.SetCertAndKey("key/me_cert.pem", "key/me_key.pem")
-
-	// if !success {
-	// 	fmt.Println(err)
-	// }
-
-	etcd.SyncCluster()
-	c := make(chan bool, 10)
+	ch := make(chan bool, 10)
 	// set up a lock
-	etcd.Set("lock", "unlock", 0)
+	c := etcd.CreateClient()
+	c.Set("lock", "unlock", 0)
+
+
 	for i := 0; i < 10; i++ {
-		go t(i, c)
+		go t(i, ch, etcd.CreateClient())
 	}
 
 	for i := 0; i < 10; i++ {
-		if <-c {
+		if <-ch {
 			good++
 		} else {
 			bad++
@@ -41,30 +32,26 @@ func main() {
 	fmt.Println("good: ", good, "bad: ", bad)
 }
 
-func t(num int, c chan bool) {
+func t(num int, ch chan bool, c *etcd.Client) {
 	for i := 0; i < 100; i++ {
-		if lock() {
+		if lock(c) {
 			// a stupid spin lock
 			count++
 			fmt.Println(num, " got the lock and update count to", count)
-			unlock()
+			unlock(c)
 			fmt.Println(num, " released the lock")
 		} else {
-			c <- false
+			ch <- false
 			return
 		}
 	}
-	c <- true
+	ch <- true
 }
 
 // A stupid spin lock
-func lock() bool {
+func lock(c *etcd.Client) bool {
 	for {
-		_, success, err := etcd.TestAndSet("lock", "unlock", "lock", 0)
-
-		if err != nil {
-			return false
-		}
+		_, success, _ := c.TestAndSet("lock", "unlock", "lock", 0)
 
 		if success != true {
 			fmt.Println("tried lock failed!")
@@ -74,9 +61,9 @@ func lock() bool {
 	}
 }
 
-func unlock() {
+func unlock(c *etcd.Client) {
 	for {
-		_, err := etcd.Set("lock", "unlock", 0)
+		_, err := c.Set("lock", "unlock", 0)
 		if err == nil {
 			return
 		}

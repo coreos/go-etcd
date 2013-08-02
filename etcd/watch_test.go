@@ -8,9 +8,11 @@ import (
 )
 
 func TestWatch(t *testing.T) {
-	go setHelper("bar")
+	c := NewClient()
 
-	result, err := Watch("watch_foo", 0, nil, nil)
+	go setHelper("bar", c)
+
+	result, err := c.Watch("watch_foo", 0, nil, nil)
 
 	if err != nil || result.Key != "/watch_foo/foo" || result.Value != "bar" {
 		if err != nil {
@@ -19,7 +21,7 @@ func TestWatch(t *testing.T) {
 		t.Fatalf("Watch failed with %s %s %v %v", result.Key, result.Value, result.TTL, result.Index)
 	}
 
-	result, err = Watch("watch_foo", result.Index, nil, nil)
+	result, err = c.Watch("watch_foo", result.Index, nil, nil)
 
 	if err != nil || result.Key != "/watch_foo/foo" || result.Value != "bar" {
 		if err != nil {
@@ -28,33 +30,33 @@ func TestWatch(t *testing.T) {
 		t.Fatalf("Watch with Index failed with %s %s %v %v", result.Key, result.Value, result.TTL, result.Index)
 	}
 
-	c := make(chan *store.Response, 10)
+	ch := make(chan *store.Response, 10)
 	stop := make(chan bool, 1)
 
-	go setLoop("bar")
+	go setLoop("bar", c)
 
-	go reciver(c, &stop)
+	go reciver(ch, stop)
 
-	Watch("watch_foo", 0, c, &stop)
+	c.Watch("watch_foo", 0, ch, stop)
 }
 
-func setHelper(value string) {
+func setHelper(value string, c *Client) {
 	time.Sleep(time.Second)
-	Set("watch_foo/foo", value, 100)
+	c.Set("watch_foo/foo", value, 100)
 }
 
-func setLoop(value string) {
+func setLoop(value string, c *Client) {
 	time.Sleep(time.Second)
 	for i := 0; i < 10; i++ {
 		newValue := fmt.Sprintf("%s_%v", value, i)
-		Set("watch_foo/foo", newValue, 100)
+		c.Set("watch_foo/foo", newValue, 100)
 		time.Sleep(time.Second / 10)
 	}
 }
 
-func reciver(c chan *store.Response, stop *chan bool) {
+func reciver(c chan *store.Response, stop chan bool) {
 	for i := 0; i < 10; i++ {
 		<-c
 	}
-	(*stop) <- true
+	stop <- true
 }

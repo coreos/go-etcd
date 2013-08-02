@@ -10,8 +10,8 @@ import (
 	"path"
 )
 
-func TestAndSet(key string, prevValue string, value string, ttl uint64) (*store.Response, bool, error) {
-	logger.Debugf("set %s, %s[%s], ttl: %d, [%s]", key, value, prevValue, ttl, client.cluster.Leader)
+func (c *Client) TestAndSet(key string, prevValue string, value string, ttl uint64) (*store.Response, bool, error) {
+	logger.Debugf("set %s, %s[%s], ttl: %d, [%s]", key, value, prevValue, ttl, c.cluster.Leader)
 	v := url.Values{}
 	v.Set("value", value)
 	v.Set("prevValue", prevValue)
@@ -20,7 +20,7 @@ func TestAndSet(key string, prevValue string, value string, ttl uint64) (*store.
 		v.Set("ttl", fmt.Sprintf("%v", ttl))
 	}
 
-	resp, err := sendRequest("POST", path.Join("keys", key), v.Encode())
+	resp, err := c.sendRequest("POST", path.Join("keys", key), v.Encode())
 
 	if err != nil {
 		return nil, false, err
@@ -36,7 +36,7 @@ func TestAndSet(key string, prevValue string, value string, ttl uint64) (*store.
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, false, fmt.Errorf(string(b))
+		return nil, false, handleError(b)
 	}
 
 	var result store.Response
