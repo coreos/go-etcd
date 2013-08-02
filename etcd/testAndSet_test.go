@@ -6,14 +6,16 @@ import (
 )
 
 func TestTestAndSet(t *testing.T) {
-	Set("foo_testAndSet", "bar", 100)
+	c := CreateClient()
+
+	c.Set("foo_testAndSet", "bar", 100)
 
 	time.Sleep(time.Second)
 
 	results := make(chan bool, 3)
 
 	for i := 0; i < 3; i++ {
-		go testAndSet("foo_testAndSet", "bar", "barbar", results)
+		testAndSet("foo_testAndSet", "bar", "barbar", results, c)
 	}
 
 	count := 0
@@ -31,7 +33,7 @@ func TestTestAndSet(t *testing.T) {
 
 }
 
-func testAndSet(key string, prevValue string, value string, c chan bool) {
-	_, success, _ := TestAndSet(key, prevValue, value, 0)
-	c <- success
+func testAndSet(key string, prevValue string, value string, ch chan bool, c *Client) {
+	_, success, _ := c.TestAndSet(key, prevValue, value, 0)
+	ch <- success
 }

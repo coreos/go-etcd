@@ -9,26 +9,23 @@ import (
 var count = 0
 
 func main() {
-	etcd.SyncCluster()
-	c := make(chan bool, 10)
+	ch := make(chan bool, 10)
 	// set up a lock
-	for i:=0; i < 200; i++ {
-		go t(i, c)
+	for i:=0; i < 1000; i++ {
+		go t(i, ch, etcd.CreateClient())
 	}
 	start := time.Now()
-	for i:=0; i< 200; i++ {
-		<-c
+	for i:=0; i< 1000; i++ {
+		<-ch
 	}
-	fmt.Println(time.Now().Sub(start), ": ", 200 * 10000, "commands")
+	fmt.Println(time.Now().Sub(start), ": ", 1000 * 50, "commands")
 }
 
-func t(num int,c chan bool) {
-	for i := 0; i < 10000; i++ {
+func t(num int, ch chan bool, c *etcd.Client) {
+	c.SyncCluster()
+	for i := 0; i < 50; i++ {
 		str := fmt.Sprintf("foo_%d",num * i)
-		etcd.Set(str, "10", 0)
+		c.Set(str, "10", 0)
 	}
-	c<-true
+	ch<-true
 }
-
-
-

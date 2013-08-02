@@ -23,14 +23,14 @@ type respAndErr struct {
 // channel. And after someone receive the channel, it will go on to watch that prefix.
 // If a stop channel is given, client can close long-term watch using the stop channel
 
-func Watch(prefix string, sinceIndex uint64, receiver chan *store.Response, stop *chan bool) (*store.Response, error) {
-	logger.Debugf("watch %s [%s]", prefix, client.cluster.Leader)
+func (c *Client) Watch(prefix string, sinceIndex uint64, receiver chan *store.Response, stop chan bool) (*store.Response, error) {
+	logger.Debugf("watch %s [%s]", prefix, c.cluster.Leader)
 	if receiver == nil {
-		return watchOnce(prefix, sinceIndex, stop)
+		return c.watchOnce(prefix, sinceIndex, stop)
 
 	} else {
 		for {
-			resp, err := watchOnce(prefix, sinceIndex, stop)
+			resp, err := c.watchOnce(prefix, sinceIndex, stop)
 			if resp != nil {
 				sinceIndex = resp.Index + 1
 				receiver <- resp
@@ -47,14 +47,14 @@ func Watch(prefix string, sinceIndex uint64, receiver chan *store.Response, stop
 
 // helper func
 // return when there is change under the given prefix
-func watchOnce(key string, sinceIndex uint64, stop *chan bool) (*store.Response, error) {
+func (c *Client) watchOnce(key string, sinceIndex uint64, stop chan bool) (*store.Response, error) {
 
 	var resp *http.Response
 	var err error
 
 	if sinceIndex == 0 {
 		// Get request if no index is given
-		resp, err = sendRequest("GET", path.Join("watch", key), "")
+		resp, err = c.sendRequest("GET", path.Join("watch", key), "")
 
 		if err != nil {
 			return nil, err
@@ -66,26 +66,26 @@ func watchOnce(key string, sinceIndex uint64, stop *chan bool) (*store.Response,
 		v := url.Values{}
 		v.Set("index", fmt.Sprintf("%v", sinceIndex))
 
-		c := make(chan respAndErr)
+		ch := make(chan respAndErr)
 
 		if stop != nil {
 			go func() {
-				resp, err = sendRequest("POST", path.Join("watch", key), v.Encode())
+				resp, err = c.sendRequest("POST", path.Join("watch", key), v.Encode())
 
-				c <- respAndErr{resp, err}
+				ch <- respAndErr{resp, err}
 			}()
 
 			// select at stop or continue to receive
 			select {
 
-			case res := <-c:
+			case res := <-ch:
 				resp, err = res.resp, res.err
 
-			case <-(*stop):
+			case <-stop:
 				resp, err = nil, errors.New("User stoped watch")
 			}
 		} else {
-			resp, err = sendRequest("POST", path.Join("watch", key), v.Encode())
+			resp, err = c.sendRequest("POST", path.Join("watch", key), v.Encode())
 		}
 
 		if err != nil {

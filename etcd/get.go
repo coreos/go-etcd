@@ -8,9 +8,9 @@ import (
 	"path"
 )
 
-func Get(key string) ([]*store.Response, error) {
-	logger.Debugf("get %s [%s]", key, client.cluster.Leader)
-	resp, err := sendRequest("GET", path.Join("keys", key), "")
+func (c *Client) Get(key string) ([]*store.Response, error) {
+	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
+	resp, err := c.sendRequest("GET", path.Join("keys", key), "")
 
 	if err != nil {
 		return nil, err
@@ -36,10 +36,10 @@ func Get(key string) ([]*store.Response, error) {
 // GetTo gets the value of the key from a given machine address.
 // If the given machine is not available it returns an error.
 // Mainly use for testing purpose
-func GetFrom(key string, addr string) ([]*store.Response, error) {
-	httpPath := createHttpPath(addr, path.Join(version, "keys", key))
+func (c *Client) GetFrom(key string, addr string) ([]*store.Response, error) {
+	httpPath := c.createHttpPath(addr, path.Join(version, "keys", key))
 
-	resp, err := client.httpClient.Get(httpPath)
+	resp, err := c.httpClient.Get(httpPath)
 
 	if err != nil {
 		return nil, err

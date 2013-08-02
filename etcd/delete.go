@@ -8,9 +8,9 @@ import (
 	"path"
 )
 
-func Delete(key string) (*store.Response, error) {
+func (c *Client) Delete(key string) (*store.Response, error) {
 
-	resp, err := sendRequest("DELETE", path.Join("keys", key), "")
+	resp, err := c.sendRequest("DELETE", path.Join("keys", key), "")
 
 	if err != nil {
 		return nil, err

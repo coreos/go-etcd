@@ -6,7 +6,9 @@ import (
 )
 
 func TestSet(t *testing.T) {
-	result, err := Set("foo", "bar", 100)
+	c := CreateClient()
+
+	result, err := c.Set("foo", "bar", 100)
 
 	if err != nil || result.Key != "/foo" || result.Value != "bar" || result.TTL != 99 {
 		if err != nil {
@@ -18,7 +20,7 @@ func TestSet(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	result, err = Set("foo", "bar", 100)
+	result, err = c.Set("foo", "bar", 100)
 
 	if err != nil || result.Key != "/foo" || result.Value != "bar" || result.PrevValue != "bar" || result.TTL != 99 {
 		if err != nil {
@@ -27,7 +29,7 @@ func TestSet(t *testing.T) {
 		t.Fatalf("Set 2 failed with %s %s %v", result.Key, result.Value, result.TTL)
 	}
 
-	result, err = SetTo("toFoo", "bar", 100, "0.0.0.0:4001")
+	result, err = c.SetTo("toFoo", "bar", 100, "0.0.0.0:4001")
 
 	if err != nil || result.Key != "/toFoo" || result.Value != "bar" || result.TTL != 99 {
 		if err != nil {

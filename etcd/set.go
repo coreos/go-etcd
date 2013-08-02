@@ -10,8 +10,8 @@ import (
 	"path"
 )
 
-func Set(key string, value string, ttl uint64) (*store.Response, error) {
-	logger.Debugf("set %s, %s, ttl: %d, [%s]", key, value, ttl, client.cluster.Leader)
+func (c *Client) Set(key string, value string, ttl uint64) (*store.Response, error) {
+	logger.Debugf("set %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	v := url.Values{}
 	v.Set("value", value)
 
@@ -19,7 +19,7 @@ func Set(key string, value string, ttl uint64) (*store.Response, error) {
 		v.Set("ttl", fmt.Sprintf("%v", ttl))
 	}
 
-	resp, err := sendRequest("POST", path.Join("keys", key), v.Encode())
+	resp, err := c.sendRequest("POST", path.Join("keys", key), v.Encode())
 
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func Set(key string, value string, ttl uint64) (*store.Response, error) {
 // SetTo sets the value of the key to a given machine address.
 // If the given machine is not available or is not leader it returns an error
 // Mainly use for testing purpose.
-func SetTo(key string, value string, ttl uint64, addr string) (*store.Response, error) {
+func (c *Client) SetTo(key string, value string, ttl uint64, addr string) (*store.Response, error) {
 	v := url.Values{}
 	v.Set("value", value)
 
@@ -53,9 +53,9 @@ func SetTo(key string, value string, ttl uint64, addr string) (*store.Response, 
 		v.Set("ttl", fmt.Sprintf("%v", ttl))
 	}
 
-	httpPath := createHttpPath(addr, path.Join(version, "keys", key))
+	httpPath := c.createHttpPath(addr, path.Join(version, "keys", key))
 
-	resp, err := client.httpClient.PostForm(httpPath, v)
+	resp, err := c.httpClient.PostForm(httpPath, v)
 
 	if err != nil {
 		return nil, err

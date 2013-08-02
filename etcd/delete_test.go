@@ -5,8 +5,11 @@ import (
 )
 
 func TestDelete(t *testing.T) {
-	Set("foo", "bar", 100)
-	result, err := Delete("foo")
+
+	c := CreateClient()
+
+	c.Set("foo", "bar", 100)
+	result, err := c.Delete("foo")
 	if err != nil {
 		t.Fatal(err)
 	}
