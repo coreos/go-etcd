@@ -6,7 +6,7 @@ import (
 )
 
 func TestTestAndSet(t *testing.T) {
-	c := CreateClient()
+	c := NewClient()
 
 	c.Set("foo_testAndSet", "bar", 100)
 

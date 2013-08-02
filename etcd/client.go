@@ -35,7 +35,7 @@ type Client struct {
 }
 
 // Setup a basic conf and cluster
-func CreateClient() *Client {
+func NewClient() *Client {
 	// default leader and machines
 	cluster := Cluster{
 		Leader:   "0.0.0.0:4001",

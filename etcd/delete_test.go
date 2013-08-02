@@ -6,7 +6,7 @@ import (
 
 func TestDelete(t *testing.T) {
 
-	c := CreateClient()
+	c := NewClient()
 
 	c.Set("foo", "bar", 100)
 	result, err := c.Delete("foo")
