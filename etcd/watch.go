@@ -102,11 +102,9 @@ func (c *Client) watchOnce(key string, sinceIndex uint64, stop chan bool) (*stor
 
 func (c *Client) sendWatchRequest(key string, sinceIndex uint64) (*http.Response, error) {
 	if sinceIndex == 0 {
-
 		resp, err := c.sendRequest("GET", path.Join("watch", key), "")
 		return resp, err
 	} else {
-
 		v := url.Values{}
 		v.Set("index", fmt.Sprintf("%v", sinceIndex))
 		resp, err := c.sendRequest("POST", path.Join("watch", key), v.Encode())
