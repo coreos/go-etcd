@@ -123,12 +123,19 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 			continue
 		} else {
 			b, err := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
 			if err != nil {
 				// try another machine in the cluster
 				continue
 			}
 			// update Machines List
 			c.cluster.Machines = strings.Split(string(b), ",")
+
+			// update leader
+			// the first one in the machine list is the leader
+			logger.Debugf("update.leader[%s,%s]", c.cluster.Leader, c.cluster.Machines[0])
+			c.cluster.Leader = c.cluster.Machines[0]
+
 			logger.Debug("sync.machines ", c.cluster.Machines)
 			return true
 		}
