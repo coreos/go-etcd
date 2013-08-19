@@ -175,7 +175,7 @@ func (c *Client) updateLeader(httpPath string) {
 	if u.Scheme == "" {
 		leader = "http://" + u.Host
 	} else {
-		leader = u.Scheme + u.Host
+		leader = u.Scheme + "://" + u.Host
 	}
 
 	logger.Debugf("update.leader[%s,%s]", c.cluster.Leader, leader)
