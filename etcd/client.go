@@ -236,11 +236,12 @@ func (c *Client) sendRequest(method string, _path string, body string) (*http.Re
 				// try to connect the leader
 				continue
 			} else if resp.StatusCode == http.StatusInternalServerError {
+				resp.Body.Close()
+
 				retry++
 				if retry > 2*len(c.cluster.Machines) {
 					return nil, errors.New("Cannot reach servers")
 				}
-				resp.Body.Close()
 				continue
 			} else {
 				logger.Debug("send.return.response ", httpPath)
