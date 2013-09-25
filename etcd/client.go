@@ -41,9 +41,8 @@ func NewClient() *Client {
 	// default leader and machines
 	cluster := Cluster{
 		Leader:   "http://127.0.0.1:4001",
-		Machines: make([]string, 1),
+		Machines: []string{"http://127.0.0.1:4001"},
 	}
-	cluster.Machines[0] = "http://127.0.0.1:4001"
 
 	config := Config{
 		// default use http
