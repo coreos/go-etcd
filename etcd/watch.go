@@ -16,6 +16,9 @@ type respAndErr struct {
 	err  error
 }
 
+// ErrUserStopped means the watch goroutine was cancelled by the user (by sending a value on the stop channel)
+var ErrUserStopped = errors.New("User stoped watch")
+
 // Watch any change under the given prefix.
 // When a sinceIndex is given, watch will try to scan from that index to the last index
 // and will return any changes under the given prefix during the history
@@ -66,7 +69,7 @@ func (c *Client) watchOnce(key string, sinceIndex uint64, stop chan bool) (*stor
 			resp, err = res.resp, res.err
 
 		case <-stop:
-			resp, err = nil, errors.New("User stoped watch")
+			resp, err = nil, ErrUserStopped
 		}
 	} else {
 		resp, err = c.sendWatchRequest(key, sinceIndex)
