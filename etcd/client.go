@@ -147,7 +147,7 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 func (c *Client) createHttpPath(serverName string, _path string) string {
 	u, _ := url.Parse(serverName)
 	u.Path = path.Join(u.Path, "/", _path)
-	return u.String()
+	return "http://" + u.String()
 }
 
 // Dial with timeout.
