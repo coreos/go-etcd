@@ -37,7 +37,10 @@ func TestWatch(t *testing.T) {
 
 	go receiver(ch, stop)
 
-	c.Watch("watch_foo", 0, ch, stop)
+	_, err = c.Watch("watch_foo", 0, ch, stop)
+	if err != ErrWatchStoppedByUser {
+		t.Fatalf("Watch returned a non-user stop error")
+	}
 }
 
 func setHelper(value string, c *Client) {
