@@ -35,7 +35,7 @@ func TestWatch(t *testing.T) {
 
 	go setLoop("bar", c)
 
-	go reciver(ch, stop)
+	go receiver(ch, stop)
 
 	c.Watch("watch_foo", 0, ch, stop)
 }
@@ -54,7 +54,7 @@ func setLoop(value string, c *Client) {
 	}
 }
 
-func reciver(c chan *store.Response, stop chan bool) {
+func receiver(c chan *store.Response, stop chan bool) {
 	for i := 0; i < 10; i++ {
 		<-c
 	}
