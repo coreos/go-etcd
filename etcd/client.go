@@ -36,12 +36,16 @@ type Client struct {
 }
 
 // Setup a basic conf and cluster
-func NewClient() *Client {
+func NewClient(machines []string) *Client {
+	// if an empty slice was sent in then just assume localhost
+	if len(machines) == 0 {
+		machines = []string{"http://127.0.0.1:4001"}
+	}
 
 	// default leader and machines
 	cluster := Cluster{
-		Leader:   "http://127.0.0.1:4001",
-		Machines: []string{"http://127.0.0.1:4001"},
+		Leader:   machines[0],
+		Machines: machines,
 	}
 
 	config := Config{

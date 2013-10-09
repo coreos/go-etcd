@@ -10,7 +10,7 @@ import (
 func TestSync(t *testing.T) {
 	fmt.Println("Make sure there are three nodes at 0.0.0.0:4001-4003")
 
-	c := NewClient()
+	c := NewClient(nil)
 
 	success := c.SyncCluster()
 	if !success {
