@@ -8,7 +8,7 @@ import (
 )
 
 func TestWatch(t *testing.T) {
-	c := NewClient()
+	c := NewClient(nil)
 
 	go setHelper("bar", c)
 
