@@ -147,6 +147,9 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 func (c *Client) createHttpPath(serverName string, _path string) string {
 	u, _ := url.Parse(serverName)
 	u.Path = path.Join(u.Path, "/", _path)
+	if u.Scheme == "" {
+		u.Scheme = "http"
+	}
 	return u.String()
 }
 
