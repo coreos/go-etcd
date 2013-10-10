@@ -111,6 +111,10 @@ func (c *Client) SetCluster(machines []string) bool {
 	return success
 }
 
+func (c *Client) GetCluster() []string {
+	return c.cluster.Machines
+}
+
 // sycn cluster information using the existing machine list
 func (c *Client) SyncCluster() bool {
 	success := c.internalSyncCluster(c.cluster.Machines)
@@ -132,8 +136,9 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 				// try another machine in the cluster
 				continue
 			}
+
 			// update Machines List
-			c.cluster.Machines = strings.Split(string(b), ",")
+			c.cluster.Machines = strings.Split(string(b), ", ")
 
 			// update leader
 			// the first one in the machine list is the leader
