@@ -24,6 +24,15 @@ func TestGet(t *testing.T) {
 		t.Fatalf("Get failed with %s %s %v", results[0].Key, results[0].Value, results[0].TTL)
 	}
 
+	_, err = c.GetWithOptions("foo", Options{
+		"recursive":  true,
+		"wait_index": 1,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	results, err = c.Get("goo")
 
 	if err == nil {

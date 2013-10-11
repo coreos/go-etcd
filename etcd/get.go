@@ -2,15 +2,49 @@ package etcd
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
 	"path"
+	"strings"
+)
+
+type Options map[string]interface{}
+
+var (
+	// Making a map to make it easier to test existence
+	validGetOptions = map[string]bool{
+		"recursive":  true,
+		"consistent": true,
+		"sorted":     true,
+		"wait":       true,
+		"wait_index": true,
+	}
 )
 
 func (c *Client) Get(key string) ([]*store.Response, error) {
+	return c.GetWithOptions(key, nil)
+}
+
+func (c *Client) GetWithOptions(key string, options Options) ([]*store.Response, error) {
 	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
-	resp, err := c.sendRequest("GET", path.Join("keys", key), "")
+
+	p := path.Join("keys", key)
+	if options != nil {
+		p += "?"
+		optionArr := make([]string, 0)
+		for opKey, opVal := range options {
+			if validGetOptions[opKey] {
+				optionArr = append(optionArr, fmt.Sprintf("%v=%v", opKey, opVal))
+			} else {
+				return nil, fmt.Errorf("Invalid option: %v", opKey)
+			}
+		}
+		p += strings.Join(optionArr, "&")
+	}
+
+	resp, err := c.sendRequest("GET", p, "")
 
 	if err != nil {
 		return nil, err
@@ -30,7 +64,6 @@ func (c *Client) Get(key string) ([]*store.Response, error) {
 	}
 
 	return convertGetResponse(b)
-
 }
 
 // GetTo gets the value of the key from a given machine address.
