@@ -156,6 +156,7 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 func (c *Client) createHttpPath(serverName string, _path string) string {
 	u, _ := url.Parse(serverName)
 	u.Path = path.Join(u.Path, "/", _path)
+
 	if u.Scheme == "" {
 		u.Scheme = "http"
 	}
@@ -168,15 +169,12 @@ func dialTimeout(network, addr string) (net.Conn, error) {
 }
 
 func (c *Client) getHttpPath(s ...string) string {
-	u, _ := url.Parse(c.cluster.Leader)
-
-	u.Path = path.Join(u.Path, "/", version)
-
+	fullPath := c.cluster.Leader + "/" + version
 	for _, seg := range s {
-		u.Path = path.Join(u.Path, seg)
+		fullPath = fullPath + "/" + seg
 	}
 
-	return u.String()
+	return fullPath
 }
 
 func (c *Client) updateLeader(httpPath string) {
@@ -203,8 +201,8 @@ func (c *Client) sendRequest(method string, _path string, body string) (*http.Re
 	retry := 0
 	// if we connect to a follower, we will retry until we found a leader
 	for {
-
 		httpPath := c.getHttpPath(_path)
+		println(httpPath)
 
 		logger.Debug("send.request.to ", httpPath)
 		if body == "" {
