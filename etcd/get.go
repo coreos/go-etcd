@@ -2,11 +2,9 @@ package etcd
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"path"
 )
 
@@ -34,7 +32,7 @@ func (c *Client) GetWithOptions(key string, options Options) ([]*store.Response,
 
 	p := path.Join("keys", key)
 	if options != nil {
-		str, err := optionsToString(options)
+		str, err := optionsToString(options, validGetOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -75,7 +73,7 @@ func (c *Client) GetFromWithOptions(key string, addr string, options Options) ([
 	httpPath := c.createHttpPath(addr, path.Join(version, "keys", key))
 
 	if options != nil {
-		str, err := optionsToString(options)
+		str, err := optionsToString(options, validGetOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -123,19 +121,4 @@ func convertGetResponse(b []byte) ([]*store.Response, error) {
 		results[0] = result
 	}
 	return results, nil
-}
-
-// Convert options to a string of HTML parameters
-func optionsToString(options Options) (string, error) {
-	p := "?"
-	v := url.Values{}
-	for opKey, opVal := range options {
-		if validGetOptions[opKey] {
-			v.Set(opKey, fmt.Sprintf("%v", opVal))
-		} else {
-			return "", fmt.Errorf("Invalid option: %v", opKey)
-		}
-	}
-	p += v.Encode()
-	return p, nil
 }
