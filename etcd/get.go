@@ -6,8 +6,8 @@ import (
 	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"path"
-	"strings"
 )
 
 type Options map[string]interface{}
@@ -128,14 +128,14 @@ func convertGetResponse(b []byte) ([]*store.Response, error) {
 // Convert options to a string of HTML parameters
 func optionsToString(options Options) (string, error) {
 	p := "?"
-	optionArr := make([]string, 0)
+	v := url.Values{}
 	for opKey, opVal := range options {
 		if validGetOptions[opKey] {
-			optionArr = append(optionArr, fmt.Sprintf("%v=%v", opKey, opVal))
+			v.Set(opKey, fmt.Sprintf("%v", opVal))
 		} else {
 			return "", fmt.Errorf("Invalid option: %v", opKey)
 		}
 	}
-	p += strings.Join(optionArr, "&")
+	p += v.Encode()
 	return p, nil
 }
