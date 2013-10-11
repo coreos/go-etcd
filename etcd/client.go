@@ -202,7 +202,6 @@ func (c *Client) sendRequest(method string, _path string, body string) (*http.Re
 	// if we connect to a follower, we will retry until we found a leader
 	for {
 		httpPath := c.getHttpPath(_path)
-		println(httpPath)
 
 		logger.Debug("send.request.to ", httpPath)
 		if body == "" {
