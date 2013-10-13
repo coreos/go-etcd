@@ -35,6 +35,8 @@ type Client struct {
 	httpClient *http.Client
 }
 
+type Options map[string]interface{}
+
 // Setup a basic conf and cluster
 func NewClient(machines []string) *Client {
 	// if an empty slice was sent in then just assume localhost
@@ -62,12 +64,16 @@ func NewClient(machines []string) *Client {
 		},
 	}
 
-	return &Client{
+	client := &Client{
 		cluster:    cluster,
 		config:     config,
 		httpClient: &http.Client{Transport: tr},
 	}
 
+	// Get the list of currently running nodes
+	client.SyncCluster()
+
+	return client
 }
 
 func (c *Client) SetCertAndKey(cert string, key string) (bool, error) {
@@ -203,7 +209,7 @@ func (c *Client) sendRequest(method string, _path string, body string) (*http.Re
 	for {
 		httpPath := c.getHttpPath(_path)
 
-		logger.Debug("send.request.to ", httpPath)
+		logger.Debug("send.request.to ", httpPath, " | method ", method)
 		if body == "" {
 
 			req, _ = http.NewRequest(method, httpPath, nil)
