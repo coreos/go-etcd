@@ -8,8 +8,6 @@ import (
 	"path"
 )
 
-type Options map[string]interface{}
-
 var (
 	// Making a map to make it easier to test existence
 	validGetOptions = map[string]bool{

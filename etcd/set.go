@@ -10,16 +10,25 @@ import (
 	"path"
 )
 
+// Create a directory
+func (c *Client) SetDir(key string, ttl uint64) (*store.Response, error) {
+	return c.Set(key, "", ttl)
+}
+
+// Create a key-value pair
 func (c *Client) Set(key string, value string, ttl uint64) (*store.Response, error) {
 	logger.Debugf("set %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	v := url.Values{}
-	v.Set("value", value)
+
+	if value != "" {
+		v.Set("value", value)
+	}
 
 	if ttl > 0 {
 		v.Set("ttl", fmt.Sprintf("%v", ttl))
 	}
 
-	resp, err := c.sendRequest("POST", path.Join("keys", key), v.Encode())
+	resp, err := c.sendRequest("PUT", path.Join("keys", key), v.Encode())
 
 	if err != nil {
 		return nil, err
@@ -34,7 +43,6 @@ func (c *Client) Set(key string, value string, ttl uint64) (*store.Response, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-
 		return nil, handleError(b)
 	}
 
@@ -42,12 +50,20 @@ func (c *Client) Set(key string, value string, ttl uint64) (*store.Response, err
 
 }
 
+// Create a directory on the given machine
+func (c *Client) SetDirTo(key string, ttl uint64, addr string) (*store.Response, error) {
+	return c.SetTo(key, "", ttl, addr)
+}
+
 // SetTo sets the value of the key to a given machine address.
 // If the given machine is not available or is not leader it returns an error
 // Mainly use for testing purpose.
 func (c *Client) SetTo(key string, value string, ttl uint64, addr string) (*store.Response, error) {
 	v := url.Values{}
-	v.Set("value", value)
+
+	if value != "" {
+		v.Set("value", value)
+	}
 
 	if ttl > 0 {
 		v.Set("ttl", fmt.Sprintf("%v", ttl))
