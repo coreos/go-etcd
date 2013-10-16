@@ -28,7 +28,7 @@ func (c *Client) Set(key string, value string, ttl uint64) (*store.Response, err
 		v.Set("ttl", fmt.Sprintf("%v", ttl))
 	}
 
-	resp, err := c.sendRequest("PUT", path.Join("keys", key), v.Encode())
+	resp, err := c.sendRequest("POST", path.Join("keys", key), v.Encode())
 
 	if err != nil {
 		return nil, err

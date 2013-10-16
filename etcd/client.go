@@ -3,6 +3,8 @@ package etcd
 import (
 	"crypto/tls"
 	"errors"
+	"github.com/BurntSushi/toml"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -30,9 +32,10 @@ type Config struct {
 }
 
 type Client struct {
-	cluster    Cluster
-	config     Config
-	httpClient *http.Client
+	cluster     Cluster
+	config      Config
+	httpClient  *http.Client
+	persistence io.Writer
 }
 
 type Options map[string]interface{}
@@ -57,32 +60,86 @@ func NewClient(machines []string) *Client {
 		Timeout: time.Second,
 	}
 
-	tr := &http.Transport{
-		Dial: dialTimeout,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
+	client := &Client{
+		cluster: cluster,
+		config:  config,
 	}
 
-	client := &Client{
-		cluster:    cluster,
-		config:     config,
-		httpClient: &http.Client{Transport: tr},
+	err := setupHttpClient(client)
+	if err != nil {
+		panic(err)
 	}
 
 	// Get the list of currently running nodes
 	client.SyncCluster()
-
 	return client
 }
 
-func (c *Client) SetCertAndKey(cert string, key string) (bool, error) {
+// Construct a client from a given config file in TOML format
+func NewClientFile(fpath string) (*Client, error) {
+	var client *Client
+	if _, err := toml.DecodeFile(fpath, client); err != nil {
+		return nil, err
+	}
 
+	err := setupHttpClient(client)
+	if err != nil {
+		return nil, err
+	}
+
+	client.SyncCluster()
+	return client, nil
+}
+
+// Construct a client by reading a config file in TOML format
+// from the given reader
+func NewClientReader(reader io.Reader) (*Client, error) {
+	var client *Client
+	if _, err := toml.DecodeReader(reader, client); err != nil {
+		return nil, err
+	}
+
+	err := setupHttpClient(client)
+	if err != nil {
+		return nil, err
+	}
+
+	client.SyncCluster()
+	return client, nil
+}
+
+func setupHttpClient(client *Client) error {
+	if client.config.CertFile != "" && client.config.KeyFile != "" {
+		err := client.SetCertAndKey(client.config.CertFile, client.config.KeyFile)
+		if err != nil {
+			return err
+		}
+	} else {
+		client.config.CertFile = ""
+		client.config.KeyFile = ""
+		tr := &http.Transport{
+			Dial: dialTimeout,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		}
+		client.httpClient = &http.Client{Transport: tr}
+	}
+
+	return nil
+}
+
+// Set a writer to which the config will be written every time it's changed.
+func (c *Client) SetPersistence(writer io.Writer) {
+	c.persistence = writer
+}
+
+func (c *Client) SetCertAndKey(cert string, key string) error {
 	if cert != "" && key != "" {
 		tlsCert, err := tls.LoadX509KeyPair(cert, key)
 
 		if err != nil {
-			return false, err
+			return err
 		}
 
 		tr := &http.Transport{
@@ -94,9 +151,9 @@ func (c *Client) SetCertAndKey(cert string, key string) (bool, error) {
 		}
 
 		c.httpClient = &http.Client{Transport: tr}
-		return true, nil
+		return nil
 	}
-	return false, errors.New("Require both cert and key path")
+	return errors.New("Require both cert and key path")
 }
 
 func (c *Client) SetScheme(scheme int) (bool, error) {
@@ -156,6 +213,11 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 		}
 	}
 	return false
+}
+
+func (c *Client) saveConfig() error {
+	// TODO
+	return nil
 }
 
 // serverName should contain both hostName and port

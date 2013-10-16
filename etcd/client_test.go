@@ -2,9 +2,10 @@ package etcd
 
 import (
 	"fmt"
-	"testing"
-	"net/url"
 	"net"
+	"net/url"
+	"os"
+	"testing"
 )
 
 // To pass this test, we need to create a cluster of 3 machines
@@ -19,7 +20,7 @@ func TestSync(t *testing.T) {
 		t.Fatal("cannot sync machines")
 	}
 
-	for _, m := range(c.GetCluster()) {
+	for _, m := range c.GetCluster() {
 		u, err := url.Parse(m)
 		if err != nil {
 			t.Fatal(err)
@@ -27,7 +28,7 @@ func TestSync(t *testing.T) {
 		if u.Scheme != "http" {
 			t.Fatal("scheme must be http")
 		}
-		
+
 		host, _, err := net.SplitHostPort(u.Host)
 		if err != nil {
 			t.Fatal(err)
@@ -55,4 +56,20 @@ func TestSync(t *testing.T) {
 		fmt.Println(c.cluster.Machines)
 	}
 
+}
+
+func TestPersistence(t *testing.T) {
+	c := NewClient(nil)
+
+	fo, err := os.Create("config.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := fo.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	c.SetPersistence(fo)
 }
