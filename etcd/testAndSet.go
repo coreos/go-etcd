@@ -8,19 +8,36 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"reflect"
 )
 
-func (c *Client) TestAndSet(key string, prevValue string, value string, ttl uint64) (*store.Response, bool, error) {
+const (
+	VALID_TESTANDSET_OPTIONS = validOptions{
+		"prevValue": reflect.String,
+		"prevIndex": reflect.Int,
+		"prevExist": reflect.Bool,
+	}
+)
+
+func (c *Client) TestAndSet(key string, value string, ttl uint64, options Options) (*store.Response, bool, error) {
 	logger.Debugf("set %s, %s[%s], ttl: %d, [%s]", key, value, prevValue, ttl, c.cluster.Leader)
+
 	v := url.Values{}
 	v.Set("value", value)
-	v.Set("prevValue", prevValue)
-
 	if ttl > 0 {
 		v.Set("ttl", fmt.Sprintf("%v", ttl))
 	}
 
-	resp, err := c.sendRequest("POST", path.Join("keys", key), v.Encode())
+	p := path.Join("keys", key)
+	if options != nil {
+		str, err := optionsToString(options, VALID_TESTANDSET_OPTIONS)
+		if err != nil {
+			return nil, err
+		}
+		p += str
+	}
+
+	resp, err := c.sendRequest("POST", p, v.Encode())
 
 	if err != nil {
 		return nil, false, err

@@ -24,7 +24,7 @@ func TestGet(t *testing.T) {
 		t.Fatalf("Get failed with %s %s %v", results[0].Key, results[0].Value, results[0].TTL)
 	}
 
-	_, err = c.GetWithOptions("foo", Options{
+	_, err = c.Get("foo", Options{
 		"recursive":  true,
 		"wait_index": 1,
 	})
@@ -33,13 +33,13 @@ func TestGet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	results, err = c.Get("goo")
+	results, err = c.Get("goo", nil)
 
 	if err == nil {
 		t.Fatalf("should not be able to get non-exist key")
 	}
 
-	results, err = c.GetFrom("foo", "0.0.0.0:4001")
+	results, err = c.GetFrom("foo", "0.0.0.0:4001", nil)
 
 	if err != nil {
 		t.Fatal(err)
@@ -49,7 +49,7 @@ func TestGet(t *testing.T) {
 		t.Fatalf("Get failed with %s %s %v", results[0].Key, results[0].Value, results[0].TTL)
 	}
 
-	results, err = c.GetFrom("foo", "0.0.0.0:4009")
+	results, err = c.GetFrom("foo", "0.0.0.0:4009", nil)
 
 	if err == nil {
 		t.Fatal("should not get from port 4009")

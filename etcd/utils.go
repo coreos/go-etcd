@@ -5,18 +5,28 @@ package etcd
 import (
 	"fmt"
 	"net/url"
+	"reflect"
 )
 
 // Convert options to a string of HTML parameters
-func optionsToString(options Options, validOptions map[string]bool) (string, error) {
+func optionsToString(options Options, validOptions map[string]reflect.Kind) (string, error) {
 	p := "?"
 	v := url.Values{}
 	for opKey, opVal := range options {
-		if validGetOptions[opKey] {
-			v.Set(opKey, fmt.Sprintf("%v", opVal))
-		} else {
+		// Check if the given option is valid (that it exists)
+		kind := validGetOptions[opKey]
+		if kind == reflect.Invalid {
 			return "", fmt.Errorf("Invalid option: %v", opKey)
 		}
+
+		// Check if the given option is of the valid type
+		t := reflect.TypeOf(opVal)
+		if kind != t.Kind() {
+			return "", fmt.Errorf("Option %s should be of %v kind, not of %v kind.",
+				opKey, kind, t.Kind())
+		}
+
+		v.Set(opKey, fmt.Sprintf("%v", opVal))
 	}
 	p += v.Encode()
 	return p, nil

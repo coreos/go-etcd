@@ -6,11 +6,27 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
+	"reflect"
 )
 
-func (c *Client) Delete(key string) (*store.Response, error) {
+const (
+	VALID_DELETE_OPTIONS = validOptions{
+		"recursive": reflect.Bool,
+	}
+)
 
-	resp, err := c.sendRequest("DELETE", path.Join("keys", key), "")
+func (c *Client) Delete(key string, options Options) (*store.Response, error) {
+
+	p := path.Join("keys", key)
+	if options != nil {
+		str, err := optionsToString(options, VALID_DELETE_OPTIONS)
+		if err != nil {
+			return nil, err
+		}
+		p += str
+	}
+
+	resp, err := c.sendRequest("DELETE", p, "")
 
 	if err != nil {
 		return nil, err

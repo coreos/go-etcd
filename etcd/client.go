@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -39,6 +40,10 @@ type Client struct {
 }
 
 type Options map[string]interface{}
+
+// An internally-used data structure that represents a mapping
+// between valid options and their kinds
+type validOptions map[string]reflect.Kind
 
 // Setup a basic conf and cluster
 func NewClient(machines []string) *Client {
