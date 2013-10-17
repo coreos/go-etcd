@@ -2,7 +2,6 @@ package etcd
 
 import (
 	"encoding/json"
-	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
 	"path"
@@ -15,7 +14,7 @@ var (
 	}
 )
 
-func (c *Client) Delete(key string, options Options) (*store.Response, error) {
+func (c *Client) Delete(key string, options Options) (*Response, error) {
 
 	p := path.Join("keys", key)
 	if options != nil {
@@ -44,7 +43,7 @@ func (c *Client) Delete(key string, options Options) (*store.Response, error) {
 		return nil, handleError(b)
 	}
 
-	var result store.Response
+	var result Response
 
 	err = json.Unmarshal(b, &result)
 

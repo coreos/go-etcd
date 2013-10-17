@@ -3,7 +3,6 @@ package etcd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/coreos/etcd/store"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -19,9 +18,8 @@ var (
 	}
 )
 
-func (c *Client) TestAndSet(key string, value string, ttl uint64, options Options) (*store.Response, error) {
+func (c *Client) TestAndSet(key string, value string, ttl uint64, options Options) (*Response, error) {
 	// logger.Debugf("set %s, %s[%s], ttl: %d, [%s]", key, value, prevValue, ttl, c.cluster.Leader)
-
 	v := url.Values{}
 	v.Set("value", value)
 	if ttl > 0 {
@@ -56,7 +54,7 @@ func (c *Client) TestAndSet(key string, value string, ttl uint64, options Option
 		return nil, handleError(b)
 	}
 
-	var result store.Response
+	var result Response
 
 	err = json.Unmarshal(b, &result)
 
