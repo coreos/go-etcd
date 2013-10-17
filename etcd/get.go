@@ -9,9 +9,9 @@ import (
 	"reflect"
 )
 
-const (
+var (
 	// Making a map to make it easier to test existence
-	VALID_GET_OPTIONS = map[string]reflect.Kind{
+	VALID_GET_OPTIONS = validOptions{
 		"recursive":  reflect.Bool,
 		"consistent": reflect.Bool,
 		"sorted":     reflect.Bool,
@@ -61,7 +61,7 @@ func (c *Client) GetFrom(key string, addr string, options Options) ([]*store.Res
 	httpPath := c.createHttpPath(addr, path.Join(version, "keys", key))
 
 	if options != nil {
-		str, err := optionsToString(options, validGetOptions)
+		str, err := optionsToString(options, VALID_GET_OPTIONS)
 		if err != nil {
 			return nil, err
 		}

@@ -9,7 +9,7 @@ func TestDelete(t *testing.T) {
 	c := NewClient(nil)
 
 	c.Set("foo", "bar", 100)
-	result, err := c.Delete("foo")
+	result, err := c.Delete("foo", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

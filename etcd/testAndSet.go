@@ -11,7 +11,7 @@ import (
 	"reflect"
 )
 
-const (
+var (
 	VALID_TESTANDSET_OPTIONS = validOptions{
 		"prevValue": reflect.String,
 		"prevIndex": reflect.Int,
@@ -19,8 +19,8 @@ const (
 	}
 )
 
-func (c *Client) TestAndSet(key string, value string, ttl uint64, options Options) (*store.Response, bool, error) {
-	logger.Debugf("set %s, %s[%s], ttl: %d, [%s]", key, value, prevValue, ttl, c.cluster.Leader)
+func (c *Client) TestAndSet(key string, value string, ttl uint64, options Options) (*store.Response, error) {
+	// logger.Debugf("set %s, %s[%s], ttl: %d, [%s]", key, value, prevValue, ttl, c.cluster.Leader)
 
 	v := url.Values{}
 	v.Set("value", value)
@@ -37,10 +37,10 @@ func (c *Client) TestAndSet(key string, value string, ttl uint64, options Option
 		p += str
 	}
 
-	resp, err := c.sendRequest("POST", p, v.Encode())
+	resp, err := c.sendRequest("PUT", p, v.Encode())
 
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)
@@ -49,11 +49,11 @@ func (c *Client) TestAndSet(key string, value string, ttl uint64, options Option
 
 	if err != nil {
 
-		return nil, false, err
+		return nil, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, false, handleError(b)
+		return nil, handleError(b)
 	}
 
 	var result store.Response
@@ -61,14 +61,8 @@ func (c *Client) TestAndSet(key string, value string, ttl uint64, options Option
 	err = json.Unmarshal(b, &result)
 
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
-	if result.PrevValue == prevValue && result.Value == value {
-
-		return &result, true, nil
-	}
-
-	return &result, false, nil
-
+	return &result, nil
 }

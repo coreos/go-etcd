@@ -9,7 +9,7 @@ import (
 	"reflect"
 )
 
-const (
+var (
 	VALID_DELETE_OPTIONS = validOptions{
 		"recursive": reflect.Bool,
 	}

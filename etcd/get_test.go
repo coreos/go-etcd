@@ -14,7 +14,7 @@ func TestGet(t *testing.T) {
 	// wait for commit
 	time.Sleep(100 * time.Millisecond)
 
-	results, err := c.Get("foo")
+	results, err := c.Get("foo", nil)
 
 	if err != nil {
 		t.Fatal(err)

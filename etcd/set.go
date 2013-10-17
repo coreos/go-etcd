@@ -70,8 +70,7 @@ func (c *Client) SetTo(key string, value string, ttl uint64, addr string) (*stor
 	}
 
 	httpPath := c.createHttpPath(addr, path.Join(version, "keys", key))
-
-	resp, err := c.httpClient.PostForm(httpPath, v)
+	resp, err := c.sendRequest("PUT", httpPath, v.Encode())
 
 	if err != nil {
 		return nil, err

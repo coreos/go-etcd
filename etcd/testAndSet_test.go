@@ -34,6 +34,13 @@ func TestTestAndSet(t *testing.T) {
 }
 
 func testAndSet(key string, prevValue string, value string, ch chan bool, c *Client) {
-	_, success, _ := c.TestAndSet(key, prevValue, value, 0)
-	ch <- success
+	resp, _ := c.TestAndSet(key, value, 0, Options{
+		"prevValue": prevValue,
+	})
+
+	if resp != nil {
+		ch <- true
+	} else {
+		ch <- false
+	}
 }

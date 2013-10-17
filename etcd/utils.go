@@ -9,12 +9,12 @@ import (
 )
 
 // Convert options to a string of HTML parameters
-func optionsToString(options Options, validOptions map[string]reflect.Kind) (string, error) {
+func optionsToString(options Options, vops validOptions) (string, error) {
 	p := "?"
 	v := url.Values{}
 	for opKey, opVal := range options {
 		// Check if the given option is valid (that it exists)
-		kind := validGetOptions[opKey]
+		kind := vops[opKey]
 		if kind == reflect.Invalid {
 			return "", fmt.Errorf("Invalid option: %v", opKey)
 		}

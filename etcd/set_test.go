@@ -26,7 +26,7 @@ func TestSet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if result.Key != "/foo" || result.Value != "bar" || result.PrevValue != "bar" || result.TTL != 99 {
+	if result.Key != "/foo" || result.Value != "bar" || result.PrevValue != "bar" || result.TTL != 100 {
 		t.Fatalf("Set 2 failed with %s %s %v", result.Key, result.Value, result.TTL)
 	}
 
@@ -36,7 +36,7 @@ func TestSet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if result.Key != "/toFoo" || result.Value != "bar" || result.TTL != 99 {
+	if result.Key != "/toFoo" || result.Value != "bar" || result.TTL != 100 {
 		t.Fatalf("SetTo failed with %s %s %v", result.Key, result.Value, result.TTL)
 	}
 
