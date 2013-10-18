@@ -14,44 +14,25 @@ func TestGet(t *testing.T) {
 	// wait for commit
 	time.Sleep(100 * time.Millisecond)
 
-	results, err := c.Get("foo", nil)
+	result, err := c.Get("foo", false)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if results[0].Key != "/foo" || results[0].Value != "bar" {
-		t.Fatalf("Get failed with %s %s %v", results[0].Key, results[0].Value, results[0].TTL)
+	if result.Key != "/foo" || result.Value != "bar" {
+		t.Fatalf("Get failed with %s %s %v", result.Key, result.Value, result.TTL)
 	}
 
-	_, err = c.Get("foo", Options{
-		"recursive":  true,
-		"wait_index": 1,
-	})
+	_, err = c.GetDir("foo", false)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	results, err = c.Get("goo", nil)
+	result, err = c.Get("goo", false)
 
 	if err == nil {
 		t.Fatalf("should not be able to get non-exist key")
-	}
-
-	results, err = c.GetFrom("foo", "0.0.0.0:4001", nil)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if results[0].Key != "/foo" || results[0].Value != "bar" {
-		t.Fatalf("Get failed with %s %s %v", results[0].Key, results[0].Value, results[0].TTL)
-	}
-
-	results, err = c.GetFrom("foo", "0.0.0.0:4009", nil)
-
-	if err == nil {
-		t.Fatal("should not get from port 4009")
 	}
 }

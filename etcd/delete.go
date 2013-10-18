@@ -1,56 +1,11 @@
 package etcd
 
-import (
-	"encoding/json"
-	"io/ioutil"
-	"net/http"
-	"path"
-	"reflect"
-)
+func (c *Client) DeleteDir(key string) (*Response, error) {
+	return c.delete(key, Options{
+		"recursive": true,
+	})
+}
 
-var (
-	VALID_DELETE_OPTIONS = validOptions{
-		"recursive": reflect.Bool,
-	}
-)
-
-func (c *Client) Delete(key string, options Options) (*Response, error) {
-
-	p := path.Join("keys", key)
-	if options != nil {
-		str, err := optionsToString(options, VALID_DELETE_OPTIONS)
-		if err != nil {
-			return nil, err
-		}
-		p += str
-	}
-
-	resp, err := c.sendRequest("DELETE", p, "")
-
-	if err != nil {
-		return nil, err
-	}
-
-	b, err := ioutil.ReadAll(resp.Body)
-
-	resp.Body.Close()
-
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, handleError(b)
-	}
-
-	var result Response
-
-	err = json.Unmarshal(b, &result)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &result, nil
-
+func (c *Client) Delete(key string) (*Response, error) {
+	return c.delete(key, nil)
 }

@@ -29,15 +29,4 @@ func TestSet(t *testing.T) {
 	if result.Key != "/foo" || result.Value != "bar" || result.PrevValue != "bar" || result.TTL != 100 {
 		t.Fatalf("Set 2 failed with %s %s %v", result.Key, result.Value, result.TTL)
 	}
-
-	result, err = c.SetTo("toFoo", "bar", 100, "0.0.0.0:4001")
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if result.Key != "/toFoo" || result.Value != "bar" || result.TTL != 100 {
-		t.Fatalf("SetTo failed with %s %s %v", result.Key, result.Value, result.TTL)
-	}
-
 }

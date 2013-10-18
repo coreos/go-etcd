@@ -318,7 +318,7 @@ func (c *Client) updateLeader(httpPath string) {
 }
 
 // Wrap GET, POST and internal error handling
-func (c *Client) sendRequest(method string, _path string, body string) (*http.Response, error) {
+func (c *Client) sendRequest(method string, _path string, body string) (*Response, error) {
 
 	var resp *http.Response
 	var req *http.Request
@@ -398,5 +398,26 @@ func (c *Client) sendRequest(method string, _path string, body string) (*http.Re
 		logger.Debug("error.from ", httpPath, " ", err.Error())
 		return nil, err
 	}
-	return resp, nil
+
+	b, err := ioutil.ReadAll(resp.Body)
+
+	resp.Body.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, handleError(b)
+	}
+
+	var result Response
+
+	err = json.Unmarshal(b, &result)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }

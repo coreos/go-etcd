@@ -11,7 +11,7 @@ func TestWatch(t *testing.T) {
 
 	go setHelper("bar", c)
 
-	result, err := c.Watch("watch_foo", 0, nil, nil)
+	result, err := c.WatchDir("watch_foo", nil, nil)
 
 	if err != nil || result.Key != "/watch_foo/foo" || result.Value != "bar" {
 		if err != nil {
@@ -20,7 +20,9 @@ func TestWatch(t *testing.T) {
 		t.Fatalf("Watch failed with %s %s %v %v", result.Key, result.Value, result.TTL, result.Index)
 	}
 
-	result, err = c.Watch("watch_foo", result.Index, nil, nil)
+	go setHelper("bar", c)
+
+	result, err = c.WatchDirIndex("watch_foo", result.Index, nil, nil)
 
 	if err != nil || result.Key != "/watch_foo/foo" || result.Value != "bar" {
 		if err != nil {
@@ -36,7 +38,7 @@ func TestWatch(t *testing.T) {
 
 	go receiver(ch, stop)
 
-	_, err = c.Watch("watch_foo", 0, ch, stop)
+	_, err = c.WatchDir("watch_foo", ch, stop)
 	if err != ErrWatchStoppedByUser {
 		t.Fatalf("Watch returned a non-user stop error")
 	}

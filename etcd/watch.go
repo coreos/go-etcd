@@ -1,19 +1,8 @@
 package etcd
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
-	"io/ioutil"
-	"net/http"
-	"net/url"
-	"path"
 )
-
-type respAndErr struct {
-	resp *http.Response
-	err  error
-}
 
 // Errors introduced by the Watch command.
 var (
@@ -27,15 +16,31 @@ var (
 // channel. And after someone receive the channel, it will go on to watch that prefix.
 // If a stop channel is given, client can close long-term watch using the stop channel
 
-func (c *Client) Watch(prefix string, sinceIndex uint64, receiver chan *Response, stop chan bool) (*Response, error) {
+func (c *Client) WatchDir(prefix string, receiver chan *Response, stop chan bool) (*Response, error) {
+	return c.watch(prefix, 0, true, receiver, stop)
+}
+
+func (c *Client) WatchDirIndex(prefix string, waitIndex uint64, receiver chan *Response, stop chan bool) (*Response, error) {
+	return c.watch(prefix, waitIndex, true, receiver, stop)
+}
+
+func (c *Client) Watch(prefix string, receiver chan *Response, stop chan bool) (*Response, error) {
+	return c.watch(prefix, 0, false, receiver, stop)
+}
+
+func (c *Client) WatchIndex(prefix string, waitIndex uint64, receiver chan *Response, stop chan bool) (*Response, error) {
+	return c.watch(prefix, waitIndex, false, receiver, stop)
+}
+
+func (c *Client) watch(prefix string, waitIndex uint64, dir bool, receiver chan *Response, stop chan bool) (*Response, error) {
 	logger.Debugf("watch %s [%s]", prefix, c.cluster.Leader)
 	if receiver == nil {
-		return c.watchOnce(prefix, sinceIndex, stop)
+		return c.watchOnce(prefix, waitIndex, dir, stop)
 	} else {
 		for {
-			resp, err := c.watchOnce(prefix, sinceIndex, stop)
+			resp, err := c.watchOnce(prefix, waitIndex, dir, stop)
 			if resp != nil {
-				sinceIndex = resp.Index + 1
+				waitIndex = resp.Index + 1
 				receiver <- resp
 			} else {
 				return nil, err
@@ -48,70 +53,37 @@ func (c *Client) Watch(prefix string, sinceIndex uint64, receiver chan *Response
 
 // helper func
 // return when there is change under the given prefix
-func (c *Client) watchOnce(key string, sinceIndex uint64, stop chan bool) (*Response, error) {
+func (c *Client) watchOnce(key string, waitIndex uint64, dir bool, stop chan bool) (*Response, error) {
 
-	var resp *http.Response
-	var err error
+	respChan := make(chan *Response)
+	errChan := make(chan error)
 
-	if stop != nil {
-		ch := make(chan respAndErr)
-
-		go func() {
-			resp, err = c.sendWatchRequest(key, sinceIndex)
-
-			ch <- respAndErr{resp, err}
-		}()
-
-		// select at stop or continue to receive
-		select {
-
-		case res := <-ch:
-			resp, err = res.resp, res.err
-
-		case <-stop:
-			resp, err = nil, ErrWatchStoppedByUser
+	go func() {
+		options := Options{
+			"wait": true,
 		}
-	} else {
-		resp, err = c.sendWatchRequest(key, sinceIndex)
-	}
+		if waitIndex > 0 {
+			options["waitIndex"] = waitIndex
+		}
+		if dir {
+			options["recursive"] = true
+		}
 
-	if err != nil {
+		resp, err := c.get(key, options)
+
+		if err != nil {
+			errChan <- err
+		}
+
+		respChan <- resp
+	}()
+
+	select {
+	case resp := <-respChan:
+		return resp, nil
+	case err := <-errChan:
 		return nil, err
+	case <-stop:
+		return nil, ErrWatchStoppedByUser
 	}
-
-	b, err := ioutil.ReadAll(resp.Body)
-
-	resp.Body.Close()
-
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-
-		return nil, handleError(b)
-	}
-
-	var result Response
-
-	err = json.Unmarshal(b, &result)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &result, nil
-}
-
-func (c *Client) sendWatchRequest(key string, sinceIndex uint64) (*http.Response, error) {
-	if sinceIndex == 0 {
-		resp, err := c.sendRequest("GET", path.Join("watch", key), "")
-		return resp, err
-	} else {
-		v := url.Values{}
-		v.Set("index", fmt.Sprintf("%v", sinceIndex))
-		resp, err := c.sendRequest("POST", path.Join("watch", key), v.Encode())
-		return resp, err
-	}
-
 }
