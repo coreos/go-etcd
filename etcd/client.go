@@ -183,14 +183,16 @@ func (c *Client) UnmarshalJSON(b []byte) error {
 
 // saveConfig saves the current config using c.persistence.
 func (c *Client) saveConfig() error {
-	b, err := json.Marshal(c)
-	if err != nil {
-		return err
-	}
+	if c.persistence != nil {
+		b, err := json.Marshal(c)
+		if err != nil {
+			return err
+		}
 
-	_, err = c.persistence.Write(b)
-	if err != nil {
-		return err
+		_, err = c.persistence.Write(b)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -213,21 +215,24 @@ func (c *Client) SetCertAndKey(cert string, key string) error {
 		}
 
 		c.httpClient = &http.Client{Transport: tr}
+		c.saveConfig()
 		return nil
 	}
 	return errors.New("Require both cert and key path")
 }
 
-func (c *Client) SetScheme(scheme int) (bool, error) {
+func (c *Client) SetScheme(scheme int) error {
 	if scheme == HTTP {
 		c.config.Scheme = "http"
-		return true, nil
+		c.saveConfig()
+		return nil
 	}
 	if scheme == HTTPS {
 		c.config.Scheme = "https"
-		return true, nil
+		c.saveConfig()
+		return nil
 	}
-	return false, errors.New("Unknown Scheme")
+	return errors.New("Unknown Scheme")
 }
 
 // SetCluster updates config using the given machine list.
@@ -271,6 +276,7 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 			c.cluster.Leader = c.cluster.Machines[0]
 
 			logger.Debug("sync.machines ", c.cluster.Machines)
+			c.saveConfig()
 			return true
 		}
 	}
@@ -315,4 +321,5 @@ func (c *Client) updateLeader(httpPath string) {
 
 	logger.Debugf("update.leader[%s,%s]", c.cluster.Leader, leader)
 	c.cluster.Leader = leader
+	c.saveConfig()
 }
