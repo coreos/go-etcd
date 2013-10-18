@@ -61,6 +61,7 @@ func TestSync(t *testing.T) {
 
 func TestPersistence(t *testing.T) {
 	c := NewClient(nil)
+	c.SyncCluster()
 
 	fo, err := os.Create("config.json")
 	if err != nil {

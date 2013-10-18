@@ -14,6 +14,8 @@ import (
 )
 
 // Valid options for GET, PUT, POST, DELETE
+// Using CAPITALIZED_UNDERSCORE to emphasize that these
+// values are meant to be used as constants.
 var (
 	VALID_GET_OPTIONS = validOptions{
 		"recursive":  reflect.Bool,
