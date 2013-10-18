@@ -14,7 +14,7 @@ func TestList(t *testing.T) {
 	// wait for commit
 	time.Sleep(time.Second)
 
-	_, err := c.Get("foo_list", false)
+	_, err := c.GetDir("foo_list", true, false)
 
 	if err != nil {
 		t.Fatal(err)

@@ -14,7 +14,7 @@ func TestGet(t *testing.T) {
 	// wait for commit
 	time.Sleep(100 * time.Millisecond)
 
-	result, err := c.Get("foo", false)
+	result, err := c.Get("foo")
 
 	if err != nil {
 		t.Fatal(err)
@@ -24,13 +24,13 @@ func TestGet(t *testing.T) {
 		t.Fatalf("Get failed with %s %s %v", result.Key, result.Value, result.TTL)
 	}
 
-	_, err = c.GetDir("foo", false)
+	_, err = c.GetDir("foo", false, false)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	result, err = c.Get("goo", false)
+	result, err = c.Get("goo")
 
 	if err == nil {
 		t.Fatalf("should not be able to get non-exist key")
