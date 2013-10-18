@@ -1,10 +1,16 @@
 package etcd
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"path"
 	"reflect"
+	"strings"
+	"time"
 )
 
 // Valid options for GET, PUT, POST, DELETE
@@ -126,4 +132,109 @@ func (c *Client) delete(key string, options options) (*Response, error) {
 	}
 
 	return resp, nil
+}
+
+// sendRequest sends a HTTP request and returns a Response as defined by etcd
+func (c *Client) sendRequest(method string, _path string, body string) (*Response, error) {
+
+	var resp *http.Response
+	var req *http.Request
+
+	retry := 0
+	// if we connect to a follower, we will retry until we found a leader
+	for {
+		var httpPath string
+
+		// If _path has schema already, then it's assumed to be
+		// a complete URL and therefore needs no further processing.
+		u, err := url.Parse(_path)
+		if err != nil {
+			return nil, err
+		}
+
+		if u.Scheme != "" {
+			httpPath = _path
+		} else {
+			httpPath = c.getHttpPath(_path)
+		}
+
+		logger.Debug("send.request.to ", httpPath, " | method ", method)
+		if body == "" {
+
+			req, _ = http.NewRequest(method, httpPath, nil)
+
+		} else {
+			req, _ = http.NewRequest(method, httpPath, strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+		}
+
+		resp, err = c.httpClient.Do(req)
+
+		logger.Debug("recv.response.from ", httpPath)
+		// network error, change a machine!
+		if err != nil {
+			retry++
+			if retry > 2*len(c.cluster.Machines) {
+				return nil, errors.New("Cannot reach servers")
+			}
+			num := retry % len(c.cluster.Machines)
+			logger.Debug("update.leader[", c.cluster.Leader, ",", c.cluster.Machines[num], "]")
+			c.cluster.Leader = c.cluster.Machines[num]
+			time.Sleep(time.Millisecond * 200)
+			continue
+		}
+
+		if resp != nil {
+			if resp.StatusCode == http.StatusTemporaryRedirect {
+				httpPath := resp.Header.Get("Location")
+
+				resp.Body.Close()
+
+				if httpPath == "" {
+					return nil, errors.New("Cannot get redirection location")
+				}
+
+				c.updateLeader(httpPath)
+				logger.Debug("send.redirect")
+				// try to connect the leader
+				continue
+			} else if resp.StatusCode == http.StatusInternalServerError {
+				resp.Body.Close()
+
+				retry++
+				if retry > 2*len(c.cluster.Machines) {
+					return nil, errors.New("Cannot reach servers")
+				}
+				continue
+			} else {
+				logger.Debug("send.return.response ", httpPath)
+				break
+			}
+
+		}
+		logger.Debug("error.from ", httpPath, " ", err.Error())
+		return nil, err
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+
+	resp.Body.Close()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, handleError(b)
+	}
+
+	var result Response
+
+	err = json.Unmarshal(b, &result)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }
