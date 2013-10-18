@@ -34,9 +34,7 @@ func TestCompareAndSwap(t *testing.T) {
 }
 
 func compareAndSwap(key string, prevValue string, value string, ch chan bool, c *Client) {
-	resp, _ := c.CompareAndSwap(key, value, 0, Options{
-		"prevValue": prevValue,
-	})
+	resp, _ := c.CompareAndSwap(key, value, 0, prevValue, 0)
 
 	if resp != nil {
 		ch <- true
