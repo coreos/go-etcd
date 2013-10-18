@@ -1,7 +1,7 @@
 package etcd
 
 func (c *Client) CompareAndSwap(key string, value string, ttl uint64, prevValue string, prevIndex uint64) (*Response, error) {
-	options := Options{}
+	options := options{}
 	if prevValue != "" {
 		options["prevValue"] = prevValue
 	}

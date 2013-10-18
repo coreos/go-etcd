@@ -59,7 +59,7 @@ func (c *Client) watchOnce(key string, waitIndex uint64, dir bool, stop chan boo
 	errChan := make(chan error)
 
 	go func() {
-		options := Options{
+		options := options{
 			"wait": true,
 		}
 		if waitIndex > 0 {

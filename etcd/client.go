@@ -40,7 +40,7 @@ type Client struct {
 	persistence io.Writer
 }
 
-type Options map[string]interface{}
+type options map[string]interface{}
 
 // An internally-used data structure that represents a mapping
 // between valid options and their kinds

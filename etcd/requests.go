@@ -30,7 +30,7 @@ var (
 )
 
 // get is a general function that issues a GET request.
-func (c *Client) get(key string, options Options) (*Response, error) {
+func (c *Client) get(key string, options options) (*Response, error) {
 	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
 
 	p := path.Join("keys", key)
@@ -51,7 +51,7 @@ func (c *Client) get(key string, options Options) (*Response, error) {
 	return resp, nil
 }
 
-func (c *Client) put(key string, value string, ttl uint64, options Options) (*Response, error) {
+func (c *Client) put(key string, value string, ttl uint64, options options) (*Response, error) {
 	logger.Debugf("put %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	v := url.Values{}
 
@@ -102,7 +102,7 @@ func (c *Client) post(key string, value string, ttl uint64) (*Response, error) {
 	return resp, nil
 }
 
-func (c *Client) delete(key string, options Options) (*Response, error) {
+func (c *Client) delete(key string, options options) (*Response, error) {
 	logger.Debugf("delete %s [%s]", key, c.cluster.Leader)
 	v := url.Values{}
 

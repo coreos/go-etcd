@@ -9,7 +9,7 @@ import (
 )
 
 // Convert options to a string of HTML parameters
-func optionsToString(options Options, vops validOptions) (string, error) {
+func optionsToString(options options, vops validOptions) (string, error) {
 	p := "?"
 	v := url.Values{}
 	for opKey, opVal := range options {
