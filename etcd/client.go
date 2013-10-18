@@ -2,8 +2,8 @@ package etcd
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"errors"
-	"github.com/BurntSushi/toml"
 	"io"
 	"io/ioutil"
 	"net"
@@ -22,20 +22,20 @@ const (
 )
 
 type Cluster struct {
-	Leader   string
-	Machines []string
+	Leader   string   `json:"leader"`
+	Machines []string `json:"machines"`
 }
 
 type Config struct {
-	CertFile string
-	KeyFile  string
-	Scheme   string
-	Timeout  time.Duration
+	CertFile string        `json:"certFile"`
+	KeyFile  string        `json:"keyFile"`
+	Scheme   string        `json:"scheme"`
+	Timeout  time.Duration `json:"timeout"`
 }
 
 type Client struct {
-	cluster     Cluster
-	config      Config
+	cluster     Cluster `json:"cluster"`
+	config      Config  `json:"config"`
 	httpClient  *http.Client
 	persistence io.Writer
 }
@@ -99,17 +99,24 @@ func NewClientFile(fpath string) (*Client, error) {
 // NewClientReader creates a Client configured from a given reader.
 // The config is expected to use the JSON format.
 func NewClientReader(reader io.Reader) (*Client, error) {
-	var client *Client
-	if _, err := toml.DecodeReader(reader, client); err != nil {
-		return nil, err
-	}
+	var client Client
 
-	err := setupHttpClient(client)
+	b, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
 
-	return client, nil
+	err = json.Unmarshal(b, &client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = setupHttpClient(&client)
+	if err != nil {
+		return nil, err
+	}
+
+	return &client, nil
 }
 
 func setupHttpClient(client *Client) error {
@@ -133,9 +140,60 @@ func setupHttpClient(client *Client) error {
 	return nil
 }
 
-// Set a writer to which the config will be written every time it's changed.
+// SetPersistence sets a writer to which the config will be
+// written every time it's changed.
 func (c *Client) SetPersistence(writer io.Writer) {
 	c.persistence = writer
+}
+
+// MarshalJSON implements the Marshaller interface
+// as defined by the standard JSON package.
+func (c *Client) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(struct {
+		Config  Config  `json:"config"`
+		Cluster Cluster `json:"cluster"`
+	}{
+		Config:  c.config,
+		Cluster: c.cluster,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+// UnmarshalJSON implements the Unmarshaller interface
+// as defined by the standard JSON package.
+func (c *Client) UnmarshalJSON(b []byte) error {
+	temp := struct {
+		Config  Config  `json: "config"`
+		Cluster Cluster `json: "cluster"`
+	}{}
+	err := json.Unmarshal(b, &temp)
+	if err != nil {
+		return err
+	}
+
+	c.cluster = temp.Cluster
+	c.config = temp.Config
+	return nil
+}
+
+// saveConfig saves the current config using c.persistence.
+func (c *Client) saveConfig() error {
+	b, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.persistence.Write(b)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *Client) SetCertAndKey(cert string, key string) error {
@@ -217,11 +275,6 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 		}
 	}
 	return false
-}
-
-func (c *Client) saveConfig() error {
-	// TODO
-	return nil
 }
 
 // createHttpPath creates a complete HTTP URL.

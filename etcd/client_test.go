@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/url"
@@ -61,7 +62,7 @@ func TestSync(t *testing.T) {
 func TestPersistence(t *testing.T) {
 	c := NewClient(nil)
 
-	fo, err := os.Create("config.toml")
+	fo, err := os.Create("config.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,4 +73,21 @@ func TestPersistence(t *testing.T) {
 	}()
 
 	c.SetPersistence(fo)
+	err = c.saveConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c2, err := NewClientFile("config.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify that the two clients have the same config
+	b1, _ := json.Marshal(c)
+	b2, _ := json.Marshal(c2)
+
+	if string(b1) != string(b2) {
+		t.Fatalf("The two configs should be equal!")
+	}
 }

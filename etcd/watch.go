@@ -31,7 +31,6 @@ func (c *Client) Watch(prefix string, sinceIndex uint64, receiver chan *Response
 	logger.Debugf("watch %s [%s]", prefix, c.cluster.Leader)
 	if receiver == nil {
 		return c.watchOnce(prefix, sinceIndex, stop)
-
 	} else {
 		for {
 			resp, err := c.watchOnce(prefix, sinceIndex, stop)
