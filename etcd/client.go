@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"reflect"
 	"strings"
@@ -45,7 +46,8 @@ type Options map[string]interface{}
 // between valid options and their kinds
 type validOptions map[string]reflect.Kind
 
-// Setup a basic conf and cluster
+// NewClient create a basic client that is configured to be used
+// with the given machine list.
 func NewClient(machines []string) *Client {
 	// if an empty slice was sent in then just assume localhost
 	if len(machines) == 0 {
@@ -75,29 +77,27 @@ func NewClient(machines []string) *Client {
 		panic(err)
 	}
 
-	// Get the list of currently running nodes
-	client.SyncCluster()
 	return client
 }
 
-// Construct a client from a given config file in TOML format
+// NewClientFile creates a client from a given file path.
+// The given file is expected to use the JSON format.
 func NewClientFile(fpath string) (*Client, error) {
-	var client *Client
-	if _, err := toml.DecodeFile(fpath, client); err != nil {
-		return nil, err
-	}
-
-	err := setupHttpClient(client)
+	fi, err := os.Open(fpath)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err := fi.Close(); err != nil {
+			panic(err)
+		}
+	}()
 
-	client.SyncCluster()
-	return client, nil
+	return NewClientReader(fi)
 }
 
-// Construct a client by reading a config file in TOML format
-// from the given reader
+// NewClientReader creates a Client configured from a given reader.
+// The config is expected to use the JSON format.
 func NewClientReader(reader io.Reader) (*Client, error) {
 	var client *Client
 	if _, err := toml.DecodeReader(reader, client); err != nil {
@@ -109,7 +109,6 @@ func NewClientReader(reader io.Reader) (*Client, error) {
 		return nil, err
 	}
 
-	client.SyncCluster()
 	return client, nil
 }
 
@@ -173,7 +172,7 @@ func (c *Client) SetScheme(scheme int) (bool, error) {
 	return false, errors.New("Unknown Scheme")
 }
 
-// Try to sync from the given machine
+// SetCluster updates config using the given machine list.
 func (c *Client) SetCluster(machines []string) bool {
 	success := c.internalSyncCluster(machines)
 	return success
@@ -183,13 +182,13 @@ func (c *Client) GetCluster() []string {
 	return c.cluster.Machines
 }
 
-// sycn cluster information using the existing machine list
+// SyncCluster updates config using the internal machine list.
 func (c *Client) SyncCluster() bool {
 	success := c.internalSyncCluster(c.cluster.Machines)
 	return success
 }
 
-// sync cluster information by providing machine list
+// internalSyncCluster syncs cluster information using the given machine list.
 func (c *Client) internalSyncCluster(machines []string) bool {
 	for _, machine := range machines {
 		httpPath := c.createHttpPath(machine, version+"/machines")
@@ -225,7 +224,8 @@ func (c *Client) saveConfig() error {
 	return nil
 }
 
-// serverName should contain both hostName and port
+// createHttpPath creates a complete HTTP URL.
+// serverName should contain both the host name and a port number, if any.
 func (c *Client) createHttpPath(serverName string, _path string) string {
 	u, _ := url.Parse(serverName)
 	u.Path = path.Join(u.Path, "/", _path)
@@ -268,14 +268,21 @@ func (c *Client) updateLeader(httpPath string) {
 func (c *Client) sendRequest(method string, _path string, body string) (*http.Response, error) {
 
 	var resp *http.Response
-	var err error
 	var req *http.Request
 
 	retry := 0
 	// if we connect to a follower, we will retry until we found a leader
 	for {
 		var httpPath string
-		if strings.HasPrefix(_path, "http") {
+
+		// If _path has schema already, then it's assumed to be
+		// a complete URL and therefore needs no further processing.
+		u, err := url.Parse(_path)
+		if err != nil {
+			return nil, err
+		}
+
+		if u.Scheme != "" {
 			httpPath = _path
 		} else {
 			httpPath = c.getHttpPath(_path)

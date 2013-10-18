@@ -54,6 +54,4 @@ func TestGet(t *testing.T) {
 	if err == nil {
 		t.Fatal("should not get from port 4009")
 	}
-
-	time.Sleep(1 * time.Second)
 }

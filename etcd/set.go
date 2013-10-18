@@ -19,6 +19,8 @@ func (c *Client) Set(key string, value string, ttl uint64) (*Response, error) {
 	logger.Debugf("set %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	v := url.Values{}
 
+	// If value is not given, then the user intends to create a directory,
+	// in which case we don't need to set "value"
 	if value != "" {
 		v.Set("value", value)
 	}
@@ -46,7 +48,6 @@ func (c *Client) Set(key string, value string, ttl uint64) (*Response, error) {
 	}
 
 	return convertSetResponse(b)
-
 }
 
 // Create a directory on the given machine

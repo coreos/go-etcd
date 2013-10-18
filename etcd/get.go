@@ -9,7 +9,6 @@ import (
 )
 
 var (
-	// Making a map to make it easier to test existence
 	VALID_GET_OPTIONS = validOptions{
 		"recursive":  reflect.Bool,
 		"consistent": reflect.Bool,
@@ -18,6 +17,11 @@ var (
 		"wait_index": reflect.Int,
 	}
 )
+
+func (c *Client) GetDir(key string, options Options) ([]*Response, error) {
+	options["recursive"] = true
+	return c.Get(key, options)
+}
 
 func (c *Client) Get(key string, options Options) ([]*Response, error) {
 	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
@@ -51,6 +55,11 @@ func (c *Client) Get(key string, options Options) ([]*Response, error) {
 	}
 
 	return convertGetResponse(b)
+}
+
+func (c *Client) GetDirFrom(key string, addr string, options Options) ([]*Response, error) {
+	options["recursive"] = true
+	return c.GetFrom(key, addr, options)
 }
 
 // GetFrom gets the value of the key from a given machine address.
