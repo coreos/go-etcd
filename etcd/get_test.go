@@ -14,7 +14,7 @@ func TestGet(t *testing.T) {
 	// Wait for commit
 	time.Sleep(100 * time.Millisecond)
 
-	result, err := c.Get("foo")
+	result, err := c.Get("foo", false)
 
 	if err != nil {
 		t.Fatal(err)
@@ -24,7 +24,7 @@ func TestGet(t *testing.T) {
 		t.Fatalf("Get failed with %s %s %v", result.Key, result.Value, result.TTL)
 	}
 
-	result, err = c.Get("goo")
+	result, err = c.Get("goo", false)
 	if err == nil {
 		t.Fatalf("should not be able to get non-exist key")
 	}
@@ -41,7 +41,7 @@ func TestGetDir(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Return kv-pairs in sorted order
-	result, err := c.GetDir("fooDir", false, true)
+	result, err := c.Get("fooDir", true)
 
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +59,7 @@ func TestGetDir(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(result.Kvs, expected) {
-		t.Fatalf("(actual) %v != (expected) %v", result.Kvs)
+		t.Fatalf("(actual) %v != (expected) %v", result.Kvs, expected)
 	}
 
 	// Test the `recursive` option
@@ -70,7 +70,7 @@ func TestGetDir(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Return kv-pairs in sorted order
-	result, err = c.GetDir("fooDir", true, true)
+	result, err = c.GetAll("fooDir", true)
 
 	if err != nil {
 		t.Fatal(err)
