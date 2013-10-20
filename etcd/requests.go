@@ -218,6 +218,7 @@ func (c *Client) sendRequest(method string, _path string, body string) (*Respons
 		return nil, err
 	}
 
+	// Convert HTTP response to etcd response
 	b, err := ioutil.ReadAll(resp.Body)
 
 	resp.Body.Close()
