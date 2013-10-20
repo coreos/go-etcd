@@ -30,7 +30,7 @@ func TestGet(t *testing.T) {
 	}
 }
 
-func TestGetDir(t *testing.T) {
+func TestGetAll(t *testing.T) {
 	c := NewClient(nil)
 
 	c.SetDir("fooDir", 5)
