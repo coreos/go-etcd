@@ -2,7 +2,6 @@ package etcd
 
 import (
 	"testing"
-	"time"
 )
 
 func TestSet(t *testing.T) {
@@ -18,8 +17,6 @@ func TestSet(t *testing.T) {
 	if resp.Key != "/foo" || resp.Value != "bar" || resp.TTL != 5 {
 		t.Fatalf("Set 1 failed: %#v", resp)
 	}
-
-	time.Sleep(time.Second)
 
 	resp, err = c.Set("foo", "bar2", 5)
 	if err != nil {

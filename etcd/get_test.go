@@ -3,16 +3,15 @@ package etcd
 import (
 	"reflect"
 	"testing"
-	"time"
 )
 
 func TestGet(t *testing.T) {
 	c := NewClient(nil)
+	defer func() {
+		c.DeleteAll("foo")
+	}()
 
 	c.Set("foo", "bar", 5)
-
-	// Wait for commit
-	time.Sleep(100 * time.Millisecond)
 
 	result, err := c.Get("foo", false)
 
@@ -32,13 +31,13 @@ func TestGet(t *testing.T) {
 
 func TestGetAll(t *testing.T) {
 	c := NewClient(nil)
+	defer func() {
+		c.DeleteAll("fooDir")
+	}()
 
 	c.SetDir("fooDir", 5)
 	c.Set("fooDir/k0", "v0", 5)
 	c.Set("fooDir/k1", "v1", 5)
-
-	// wait for commit
-	time.Sleep(100 * time.Millisecond)
 
 	// Return kv-pairs in sorted order
 	result, err := c.Get("fooDir", true)
@@ -65,9 +64,6 @@ func TestGetAll(t *testing.T) {
 	// Test the `recursive` option
 	c.SetDir("fooDir/childDir", 5)
 	c.Set("fooDir/childDir/k2", "v2", 5)
-
-	// Wait for commit
-	time.Sleep(100 * time.Millisecond)
 
 	// Return kv-pairs in sorted order
 	result, err = c.GetAll("fooDir", true)
