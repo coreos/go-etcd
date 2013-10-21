@@ -227,7 +227,8 @@ func (c *Client) sendRequest(method string, _path string, body string) (*Respons
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if !(resp.StatusCode == http.StatusOK ||
+		resp.StatusCode == http.StatusCreated) {
 		return nil, handleError(b)
 	}
 

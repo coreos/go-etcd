@@ -9,7 +9,7 @@ var logger *log.Logger
 
 func init() {
 	setLogger(log.PriErr)
-	// OpenDebug()
+	OpenDebug()
 }
 
 func OpenDebug() {
