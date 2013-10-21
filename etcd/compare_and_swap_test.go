@@ -2,43 +2,50 @@ package etcd
 
 import (
 	"testing"
-	"time"
 )
 
 func TestCompareAndSwap(t *testing.T) {
 	c := NewClient(nil)
+	defer func() {
+		c.DeleteAll("foo")
+	}()
 
-	c.Set("foo_testAndSet", "bar", 100)
+	c.Set("foo", "bar", 5)
 
-	time.Sleep(time.Second)
-
-	results := make(chan bool, 3)
-
-	for i := 0; i < 3; i++ {
-		compareAndSwap("foo_testAndSet", "bar", "barbar", results, c)
+	// This should succeed
+	resp, err := c.CompareAndSwap("foo", "bar2", 5, "bar", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(resp.Value == "bar2" && resp.PrevValue == "bar" &&
+		resp.Key == "/foo" && resp.TTL == 5) {
+		t.Fatalf("CompareAndSwap 1 failed: %#v", resp)
 	}
 
-	count := 0
-
-	for i := 0; i < 3; i++ {
-		result := <-results
-		if result {
-			count++
-		}
+	// This should fail because it gives an incorrect prevValue
+	resp, err = c.CompareAndSwap("foo", "bar3", 5, "xxx", 0)
+	if err == nil {
+		t.Fatalf("CompareAndSwap 2 should have failed.  The response is: %#v", resp)
 	}
 
-	if count != 1 {
-		t.Fatalf("test and set fails %v", count)
+	resp, err = c.Set("foo", "bar", 5)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-}
+	// This should succeed
+	resp, err = c.CompareAndSwap("foo", "bar2", 5, "", resp.Index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(resp.Value == "bar2" && resp.PrevValue == "bar" &&
+		resp.Key == "/foo" && resp.TTL == 5) {
+		t.Fatalf("CompareAndSwap 1 failed: %#v", resp)
+	}
 
-func compareAndSwap(key string, prevValue string, value string, ch chan bool, c *Client) {
-	resp, _ := c.CompareAndSwap(key, value, 0, prevValue, 0)
-
-	if resp != nil {
-		ch <- true
-	} else {
-		ch <- false
+	// This should fail because it gives an incorrect prevIndex
+	resp, err = c.CompareAndSwap("foo", "bar3", 5, "", 29817514)
+	if err == nil {
+		t.Fatalf("CompareAndSwap 2 should have failed.  The response is: %#v", resp)
 	}
 }
