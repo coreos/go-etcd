@@ -9,7 +9,8 @@ var logger *log.Logger
 
 func init() {
 	setLogger(log.PriErr)
-	OpenDebug()
+	// Uncomment the following line if you want to see lots of logs
+	// OpenDebug()
 }
 
 func OpenDebug() {
