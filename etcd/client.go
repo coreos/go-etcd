@@ -21,16 +21,26 @@ const (
 	HTTPS
 )
 
+// See SetConsistency for how to use these constants.
+const (
+	// Using strings rather than iota because the consistency level
+	// could be persisted to disk, so it'd be better to use
+	// human-readable values.
+	STRONG_CONSISTENCY = "STRONG"
+	WEAK_CONSISTENCY   = "WEAK"
+)
+
 type Cluster struct {
 	Leader   string   `json:"leader"`
 	Machines []string `json:"machines"`
 }
 
 type Config struct {
-	CertFile string        `json:"certFile"`
-	KeyFile  string        `json:"keyFile"`
-	Scheme   string        `json:"scheme"`
-	Timeout  time.Duration `json:"timeout"`
+	CertFile    string        `json:"certFile"`
+	KeyFile     string        `json:"keyFile"`
+	Scheme      string        `json:"scheme"`
+	Timeout     time.Duration `json:"timeout"`
+	Consistency string        `json: "consistency"`
 }
 
 type Client struct {
@@ -65,6 +75,8 @@ func NewClient(machines []string) *Client {
 		Scheme: "http",
 		// default timeout is one second
 		Timeout: time.Second,
+		// default consistency level is STRONG
+		Consistency: STRONG_CONSISTENCY,
 	}
 
 	client := &Client{
@@ -144,6 +156,27 @@ func setupHttpClient(client *Client) error {
 // written every time it's changed.
 func (c *Client) SetPersistence(writer io.Writer) {
 	c.persistence = writer
+}
+
+// SetConsistency changes the consistency level of the client.
+//
+// When consistency is set to STRONG_CONSISTENCY, all requests,
+// including GET, are sent to the leader.  This means that, assuming
+// the absence of leader failures, GET requests are guranteed to see
+// the changes made by previous requests.
+//
+// When consistency is set to WEAK_CONSISTENCY, other requests
+// are still sent to the leader, but GET requests are sent to a
+// random server from the server pool.  This reduces the read
+// load on the leader, but it's not guranteed that the GET requests
+// will see changes made by previous requests (they might have not
+// yet been commited on non-leader servers).
+func (c *Client) SetConsistency(consistency string) error {
+	if !(consistency == STRONG_CONSISTENCY || consistency == WEAK_CONSISTENCY) {
+		return errors.New("The argument must be either STRONG_CONSISTENCY or WEAK_CONSISTENCY.")
+	}
+	c.config.Consistency = consistency
+	return nil
 }
 
 // MarshalJSON implements the Marshaller interface
@@ -298,15 +331,6 @@ func (c *Client) createHttpPath(serverName string, _path string) string {
 // Dial with timeout.
 func dialTimeout(network, addr string) (net.Conn, error) {
 	return net.DialTimeout(network, addr, time.Second)
-}
-
-func (c *Client) getHttpPath(s ...string) string {
-	fullPath := c.cluster.Leader + "/" + version
-	for _, seg := range s {
-		fullPath = fullPath + "/" + seg
-	}
-
-	return fullPath
 }
 
 func (c *Client) updateLeader(httpPath string) {

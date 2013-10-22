@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"path"
@@ -43,6 +44,11 @@ func (c *Client) get(key string, options options) (*Response, error) {
 	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
 
 	p := path.Join("keys", key)
+	// If consistency level is set to STRONG, append
+	// the `consistent` query string.
+	if c.config.Consistency == STRONG_CONSISTENCY {
+		options["consistent"] = true
+	}
 	if options != nil {
 		str, err := optionsToString(options, VALID_GET_OPTIONS)
 		if err != nil {
@@ -157,7 +163,14 @@ func (c *Client) sendRequest(method string, _path string, body string) (*Respons
 		if u.Scheme != "" {
 			httpPath = _path
 		} else {
-			httpPath = c.getHttpPath(_path)
+			if method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
+				// If it's a GET and consistency level is set to WEAK,
+				// then use a random machine.
+				httpPath = c.getHttpPath(true, _path)
+			} else {
+				// Else use the leader.
+				httpPath = c.getHttpPath(false, _path)
+			}
 		}
 
 		logger.Debug("send.request.to ", httpPath, " | method ", method)
@@ -241,4 +254,20 @@ func (c *Client) sendRequest(method string, _path string, body string) (*Respons
 	}
 
 	return &result, nil
+}
+
+func (c *Client) getHttpPath(random bool, s ...string) string {
+	var machine string
+	if random {
+		machine = c.cluster.Machines[rand.Intn(len(c.cluster.Machines))]
+	} else {
+		machine = c.cluster.Leader
+	}
+
+	fullPath := machine + "/" + version
+	for _, seg := range s {
+		fullPath = fullPath + "/" + seg
+	}
+
+	return fullPath
 }
