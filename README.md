@@ -6,7 +6,7 @@ This etcd client library is under heavy development. Check back soon for more
 docs. In the meantime, check out [etcd](https://github.com/coreos/etcd) for
 details on the client protocol. 
 
-For usage see example below or look at godoc: [go-etcd/etcd](http://godoc.org/github.com/coreos/go-etcd/etcd)
+For usage, check out godoc: [go-etcd/etcd](http://godoc.org/github.com/coreos/go-etcd/etcd).
 
 ## Install
 
