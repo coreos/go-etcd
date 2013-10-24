@@ -97,3 +97,78 @@ func TestGetAll(t *testing.T) {
 		t.Fatalf("(actual) %v != (expected) %v", result.Kvs)
 	}
 }
+
+func TestGetAllAtRoot(t *testing.T) {
+	c := NewClient(nil)
+	defer func() {
+		c.DeleteAll("fooDir")
+	}()
+
+	c.SetDir("fooDir", 5)
+	c.Set("fooDir/k0", "v0", 5)
+	c.Set("fooDir/k1", "v1", 5)
+
+	// Return kv-pairs in sorted order
+	result, err := c.Get("fooDir", true)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := kvPairs{
+		KeyValuePair{
+			Key:   "/fooDir/k0",
+			Value: "v0",
+		},
+		KeyValuePair{
+			Key:   "/fooDir/k1",
+			Value: "v1",
+		},
+	}
+
+	if !reflect.DeepEqual(result.Kvs, expected) {
+		t.Fatalf("(actual) %v != (expected) %v", result.Kvs, expected)
+	}
+
+	// Test the `recursive` option
+	c.SetDir("fooDir/childDir", 5)
+	c.Set("fooDir/childDir/k2", "v2", 5)
+
+	// Return kv-pairs in sorted order
+	result, err = c.GetAll("/", true)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected = kvPairs{
+		KeyValuePair{
+			Key: "/fooDir",
+			Dir: true,
+			KVPairs: kvPairs{
+				KeyValuePair{
+					Key: "/fooDir/childDir",
+					Dir: true,
+					KVPairs: kvPairs{
+						KeyValuePair{
+							Key:   "/fooDir/childDir/k2",
+							Value: "v2",
+						},
+					},
+				},
+				KeyValuePair{
+					Key:   "/fooDir/k0",
+					Value: "v0",
+				},
+				KeyValuePair{
+					Key:   "/fooDir/k1",
+					Value: "v1",
+				},
+			},
+		},
+	}
+
+	if !reflect.DeepEqual(result.Kvs, expected) {
+		t.Fatalf("(actual) %v != (expected) %v", result.Kvs, expected)
+	}
+}
