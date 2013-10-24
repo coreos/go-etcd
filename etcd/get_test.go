@@ -47,11 +47,11 @@ func TestGetAll(t *testing.T) {
 	}
 
 	expected := kvPairs{
-		KeyValuePair{
+		&Response{
 			Key:   "/fooDir/k0",
 			Value: "v0",
 		},
-		KeyValuePair{
+		&Response{
 			Key:   "/fooDir/k1",
 			Value: "v1",
 		},
@@ -73,21 +73,21 @@ func TestGetAll(t *testing.T) {
 	}
 
 	expected = kvPairs{
-		KeyValuePair{
+		&Response{
 			Key: "/fooDir/childDir",
 			Dir: true,
-			KVPairs: kvPairs{
-				KeyValuePair{
+			Kvs: kvPairs{
+				&Response{
 					Key:   "/fooDir/childDir/k2",
 					Value: "v2",
 				},
 			},
 		},
-		KeyValuePair{
+		&Response{
 			Key:   "/fooDir/k0",
 			Value: "v0",
 		},
-		KeyValuePair{
+		&Response{
 			Key:   "/fooDir/k1",
 			Value: "v1",
 		},

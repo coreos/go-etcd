@@ -59,7 +59,7 @@ func TestAddChildDir(t *testing.T) {
 	resp, err := c.Get("fooDir", true)
 	// The child with v0 should proceed the child with v1 because it's added
 	// earlier, so it should have a lower key.
-	if !(len(resp.Kvs) == 2 && (len(resp.Kvs[0].KVPairs) == 0 && len(resp.Kvs[1].KVPairs) == 0)) {
+	if !(len(resp.Kvs) == 2 && (len(resp.Kvs[0].Kvs) == 0 && len(resp.Kvs[1].Kvs) == 0)) {
 		t.Fatalf("AddChildDir 1 failed.  There should be two chlidren whose values are v0 and v1, respectively."+
 			"  The response was: %#v", resp)
 	}
