@@ -26,15 +26,7 @@ type Response struct {
 	Index uint64 `json:"index"`
 }
 
-// When user list a directory, we add all the node into key-value pair slice
-type KeyValuePair struct {
-	Key     string  `json:"key, omitempty"`
-	Value   string  `json:"value,omitempty"`
-	Dir     bool    `json:"dir,omitempty"`
-	KVPairs kvPairs `json:"kvs,omitempty"`
-}
-
-type kvPairs []KeyValuePair
+type kvPairs []*Response
 
 // interfaces for sorting
 func (kvs kvPairs) Len() int {
