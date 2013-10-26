@@ -37,7 +37,15 @@ var (
 	VALID_DELETE_OPTIONS = validOptions{
 		"recursive": reflect.Bool,
 	}
+
+	printCurl bool
 )
+
+// SetPrintCurl prints a cURL command which can be used to
+// re-produce a request.  This is useful for debugging.
+func SetPrintCurl(b bool) {
+	printCurl = b
+}
 
 // get issues a GET request
 func (c *Client) get(key string, options options) (*Response, error) {
@@ -57,7 +65,7 @@ func (c *Client) get(key string, options options) (*Response, error) {
 		p += str
 	}
 
-	resp, err := c.sendRequest("GET", p, "")
+	resp, err := c.sendRequest("GET", p, url.Values{})
 
 	if err != nil {
 		return nil, err
@@ -88,7 +96,7 @@ func (c *Client) put(key string, value string, ttl uint64, options options) (*Re
 		p += str
 	}
 
-	resp, err := c.sendRequest("PUT", p, v.Encode())
+	resp, err := c.sendRequest("PUT", p, v)
 
 	if err != nil {
 		return nil, err
@@ -110,7 +118,7 @@ func (c *Client) post(key string, value string, ttl uint64) (*Response, error) {
 		v.Set("ttl", fmt.Sprintf("%v", ttl))
 	}
 
-	resp, err := c.sendRequest("POST", path.Join("keys", key), v.Encode())
+	resp, err := c.sendRequest("POST", path.Join("keys", key), v)
 
 	if err != nil {
 		return nil, err
@@ -133,7 +141,7 @@ func (c *Client) delete(key string, options options) (*Response, error) {
 		p += str
 	}
 
-	resp, err := c.sendRequest("DELETE", p, v.Encode())
+	resp, err := c.sendRequest("DELETE", p, v)
 
 	if err != nil {
 		return nil, err
@@ -143,8 +151,8 @@ func (c *Client) delete(key string, options options) (*Response, error) {
 }
 
 // sendRequest sends a HTTP request and returns a Response as defined by etcd
-func (c *Client) sendRequest(method string, _path string, body string) (*Response, error) {
-
+func (c *Client) sendRequest(method string, _path string, values url.Values) (*Response, error) {
+	var body string = values.Encode()
 	var resp *http.Response
 	var req *http.Request
 
@@ -171,6 +179,15 @@ func (c *Client) sendRequest(method string, _path string, body string) (*Respons
 				// Else use the leader.
 				httpPath = c.getHttpPath(false, _path)
 			}
+		}
+
+		// Print cURL command if printCurl is set to true
+		if printCurl {
+			command := fmt.Sprintf("curl -X %s %s", method, httpPath)
+			for key, value := range values {
+				command += fmt.Sprintf(" -d %s=%s", key, value[0])
+			}
+			fmt.Println(command)
 		}
 
 		logger.Debug("send.request.to ", httpPath, " | method ", method)
