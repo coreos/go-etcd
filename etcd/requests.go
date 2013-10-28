@@ -38,13 +38,13 @@ var (
 		"recursive": reflect.Bool,
 	}
 
-	printCurl bool
+	curlChan chan string
 )
 
-// SetPrintCurl prints a cURL command which can be used to
-// re-produce a request.  This is useful for debugging.
-func SetPrintCurl(b bool) {
-	printCurl = b
+// SetCurlChan sets a channel to which cURL commands which can be used to
+// re-produce requests are sent.  This is useful for debugging.
+func SetCurlChan(c chan string) {
+	curlChan = c
 }
 
 // get issues a GET request
@@ -181,13 +181,13 @@ func (c *Client) sendRequest(method string, _path string, values url.Values) (*R
 			}
 		}
 
-		// Print cURL command if printCurl is set to true
-		if printCurl {
+		// Return a cURL command if curlChan is set
+		if curlChan != nil {
 			command := fmt.Sprintf("curl -X %s %s", method, httpPath)
 			for key, value := range values {
 				command += fmt.Sprintf(" -d %s=%s", key, value[0])
 			}
-			fmt.Println(command)
+			curlChan <- command
 		}
 
 		logger.Debug("send.request.to ", httpPath, " | method ", method)
