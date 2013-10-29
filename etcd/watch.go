@@ -58,6 +58,11 @@ func (c *Client) watchOnce(key string, sinceIndex uint64, stop chan bool) (*Resp
 		ch := make(chan respAndErr)
 
 		go func() {
+			defer func() {
+				if r := recover(); r != nil && resp != nil {
+					resp.Body.Close()
+				}
+			}()
 			resp, err = c.sendWatchRequest(key, sinceIndex)
 
 			ch <- respAndErr{resp, err}
@@ -70,6 +75,7 @@ func (c *Client) watchOnce(key string, sinceIndex uint64, stop chan bool) (*Resp
 			resp, err = res.resp, res.err
 
 		case <-stop:
+			close(ch)
 			resp, err = nil, ErrWatchStoppedByUser
 		}
 	} else {
