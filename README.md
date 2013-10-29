@@ -1,6 +1,6 @@
 # go-etcd
 
-The official etcd client library for Go.
+The official etcd v0.2 client library for Go.
 
 For usage, please refer to: [go-etcd/etcd](http://godoc.org/github.com/coreos/go-etcd/etcd).
 
