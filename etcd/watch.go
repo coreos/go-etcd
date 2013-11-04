@@ -56,16 +56,16 @@ func (c *Client) watchOnce(key string, sinceIndex uint64, stop chan bool) (*Resp
 
 	if stop != nil {
 		ch := make(chan respAndErr)
+		fin := make(chan bool)
 
 		go func() {
-			defer func() {
-				if r := recover(); r != nil && resp != nil {
-					resp.Body.Close()
-				}
-			}()
 			resp, err = c.sendWatchRequest(key, sinceIndex)
 
-			ch <- respAndErr{resp, err}
+			select {
+			case ch <- respAndErr{resp, err}:
+			case <-fin:
+				resp.Body.Close()
+			}
 		}()
 
 		// select at stop or continue to receive
@@ -75,8 +75,8 @@ func (c *Client) watchOnce(key string, sinceIndex uint64, stop chan bool) (*Resp
 			resp, err = res.resp, res.err
 
 		case <-stop:
-			close(ch)
-			resp, err = nil, ErrWatchStoppedByUser
+			close(fin)
+			return nil, ErrWatchStoppedByUser
 		}
 	} else {
 		resp, err = c.sendWatchRequest(key, sinceIndex)
