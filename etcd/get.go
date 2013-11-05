@@ -8,7 +8,9 @@ import (
 )
 
 func (c *Client) Get(key string) ([]*Response, error) {
+	c.cluster.RLock()
 	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
+	c.cluster.RUnlock()
 	resp, err := c.sendRequest("GET", path.Join("keys", key), "")
 
 	if err != nil {
