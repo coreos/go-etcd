@@ -10,7 +10,9 @@ import (
 )
 
 func (c *Client) TestAndSet(key string, prevValue string, value string, ttl uint64) (*Response, bool, error) {
+	c.cluster.RLock()
 	logger.Debugf("set %s, %s[%s], ttl: %d, [%s]", key, value, prevValue, ttl, c.cluster.Leader)
+	c.cluster.RUnlock()
 	v := url.Values{}
 	v.Set("value", value)
 	v.Set("prevValue", prevValue)

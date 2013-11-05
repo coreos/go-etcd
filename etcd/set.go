@@ -10,7 +10,9 @@ import (
 )
 
 func (c *Client) Set(key string, value string, ttl uint64) (*Response, error) {
+	c.cluster.RLock()
 	logger.Debugf("set %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
+	c.cluster.RUnlock()
 	v := url.Values{}
 	v.Set("value", value)
 

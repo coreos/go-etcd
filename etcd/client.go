@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,6 +19,7 @@ const (
 )
 
 type Cluster struct {
+	sync.RWMutex
 	Leader   string
 	Machines []string
 }
@@ -142,8 +144,10 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 
 			// update leader
 			// the first one in the machine list is the leader
+			c.cluster.Lock()
 			logger.Debugf("update.leader[%s,%s]", c.cluster.Leader, c.cluster.Machines[0])
 			c.cluster.Leader = c.cluster.Machines[0]
+			c.cluster.Unlock()
 
 			logger.Debug("sync.machines ", c.cluster.Machines)
 			return true
@@ -168,7 +172,9 @@ func dialTimeout(network, addr string) (net.Conn, error) {
 }
 
 func (c *Client) getHttpPath(s ...string) string {
+	c.cluster.RLock()
 	u, _ := url.Parse(c.cluster.Leader)
+	c.cluster.RUnlock()
 
 	u.Path = path.Join(u.Path, "/", version)
 
@@ -189,8 +195,10 @@ func (c *Client) updateLeader(httpPath string) {
 		leader = u.Scheme + "://" + u.Host
 	}
 
+	c.cluster.Lock()
 	logger.Debugf("update.leader[%s,%s]", c.cluster.Leader, leader)
 	c.cluster.Leader = leader
+	c.cluster.Unlock()
 }
 
 // Wrap GET, POST and internal error handling
@@ -226,8 +234,10 @@ func (c *Client) sendRequest(method string, _path string, body string) (*http.Re
 				return nil, errors.New("Cannot reach servers")
 			}
 			num := retry % len(c.cluster.Machines)
+			c.cluster.Lock()
 			logger.Debug("update.leader[", c.cluster.Leader, ",", c.cluster.Machines[num], "]")
 			c.cluster.Leader = c.cluster.Machines[num]
+			c.cluster.Unlock()
 			time.Sleep(time.Millisecond * 200)
 			continue
 		}

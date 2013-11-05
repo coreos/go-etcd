@@ -28,7 +28,9 @@ var (
 // If a stop channel is given, client can close long-term watch using the stop channel
 
 func (c *Client) Watch(prefix string, sinceIndex uint64, receiver chan *Response, stop chan bool) (*Response, error) {
+	c.cluster.RLock()
 	logger.Debugf("watch %s [%s]", prefix, c.cluster.Leader)
+	c.cluster.RUnlock()
 	if receiver == nil {
 		return c.watchOnce(prefix, sinceIndex, stop)
 
