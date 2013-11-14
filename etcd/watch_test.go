@@ -24,7 +24,7 @@ func TestWatch(t *testing.T) {
 
 	go setHelper("watch_foo", "bar", c)
 
-	resp, err = c.Watch("watch_foo", resp.Index, nil, nil)
+	resp, err = c.Watch("watch_foo", resp.ModifiedIndex, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestWatchAll(t *testing.T) {
 
 	go setHelper("watch_foo/foo", "bar", c)
 
-	resp, err = c.WatchAll("watch_foo", resp.Index, nil, nil)
+	resp, err = c.WatchAll("watch_foo", resp.ModifiedIndex, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

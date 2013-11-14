@@ -41,7 +41,7 @@ func (c *Client) watch(prefix string, waitIndex uint64, recursive bool, receiver
 		for {
 			resp, err := c.watchOnce(prefix, waitIndex, recursive, stop)
 			if resp != nil {
-				waitIndex = resp.Index + 1
+				waitIndex = resp.ModifiedIndex + 1
 				receiver <- resp
 			} else {
 				return nil, err

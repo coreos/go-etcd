@@ -34,7 +34,7 @@ func TestCompareAndSwap(t *testing.T) {
 	}
 
 	// This should succeed
-	resp, err = c.CompareAndSwap("foo", "bar2", 5, "", resp.Index)
+	resp, err = c.CompareAndSwap("foo", "bar2", 5, "", resp.ModifiedIndex)
 	if err != nil {
 		t.Fatal(err)
 	}
