@@ -23,7 +23,7 @@ type Response struct {
 	TTL int64 `json:"ttl,omitempty"`
 
 	// The command index of the raft machine when the command is executed
-	Index uint64 `json:"index"`
+	ModifiedIndex uint64 `json:"modifiedIndex"`
 }
 
 // When user list a directory, we add all the node into key-value pair slice
