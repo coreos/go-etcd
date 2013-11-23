@@ -38,11 +38,15 @@ var (
 )
 
 // Convert options to a string of HTML parameters
-func (ops *options) toParameters(validOps validOptions) (string, error) {
+func (ops options) toParameters(validOps validOptions) (string, error) {
 	p := "?"
 	values := url.Values{}
 
-	for k, v := range *ops {
+	if ops == nil {
+		return "", nil
+	}
+
+	for k, v := range ops {
 		// Check if the given option is valid (that it exists)
 		kind := validOps[k]
 		if kind == reflect.Invalid {

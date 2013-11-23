@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"reflect"
 	"strings"
 	"time"
 )
@@ -34,13 +33,12 @@ func (c *Client) get(key string, options options) (*Response, error) {
 	if c.config.Consistency == STRONG_CONSISTENCY {
 		options["consistent"] = true
 	}
-	if options != nil {
-		str, err := options.toParameters(VALID_GET_OPTIONS)
-		if err != nil {
-			return nil, err
-		}
-		p += str
+
+	str, err := options.toParameters(VALID_GET_OPTIONS)
+	if err != nil {
+		return nil, err
 	}
+	p += str
 
 	resp, err := c.sendRequest("GET", p, nil)
 
@@ -56,13 +54,11 @@ func (c *Client) put(key string, value string, ttl uint64, options options) (*Re
 	logger.Debugf("put %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := path.Join("keys", key)
 
-	if options != nil {
-		str, err := options.toParameters(VALID_PUT_OPTIONS)
-		if err != nil {
-			return nil, err
-		}
-		p += str
+	str, err := options.toParameters(VALID_PUT_OPTIONS)
+	if err != nil {
+		return nil, err
 	}
+	p += str
 
 	resp, err := c.sendRequest("PUT", p, buildValues(value, ttl))
 
@@ -92,13 +88,12 @@ func (c *Client) delete(key string, options options) (*Response, error) {
 	logger.Debugf("delete %s [%s]", key, c.cluster.Leader)
 
 	p := path.Join("keys", key)
-	if options != nil {
-		str, err := options.toParameters(VALID_DELETE_OPTIONS)
-		if err != nil {
-			return nil, err
-		}
-		p += str
+
+	str, err := options.toParameters(VALID_DELETE_OPTIONS)
+	if err != nil {
+		return nil, err
 	}
+	p += str
 
 	resp, err := c.sendRequest("DELETE", p, nil)
 
