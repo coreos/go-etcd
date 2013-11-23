@@ -77,17 +77,8 @@ func (c *Client) get(key string, options options) (*Response, error) {
 // put issues a PUT request
 func (c *Client) put(key string, value string, ttl uint64, options options) (*Response, error) {
 	logger.Debugf("put %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
-	v := url.Values{}
-
-	if value != "" {
-		v.Set("value", value)
-	}
-
-	if ttl > 0 {
-		v.Set("ttl", fmt.Sprintf("%v", ttl))
-	}
-
 	p := path.Join("keys", key)
+
 	if options != nil {
 		str, err := optionsToString(options, VALID_PUT_OPTIONS)
 		if err != nil {
@@ -96,7 +87,7 @@ func (c *Client) put(key string, value string, ttl uint64, options options) (*Re
 		p += str
 	}
 
-	resp, err := c.sendRequest("PUT", p, v)
+	resp, err := c.sendRequest("PUT", p, buildValues(value, ttl))
 
 	if err != nil {
 		return nil, err
@@ -108,17 +99,9 @@ func (c *Client) put(key string, value string, ttl uint64, options options) (*Re
 // post issues a POST request
 func (c *Client) post(key string, value string, ttl uint64) (*Response, error) {
 	logger.Debugf("post %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
-	v := url.Values{}
+	p := path.Join("keys", key)
 
-	if value != "" {
-		v.Set("value", value)
-	}
-
-	if ttl > 0 {
-		v.Set("ttl", fmt.Sprintf("%v", ttl))
-	}
-
-	resp, err := c.sendRequest("POST", path.Join("keys", key), v)
+	resp, err := c.sendRequest("POST", p, buildValues(value, ttl))
 
 	if err != nil {
 		return nil, err
@@ -287,4 +270,19 @@ func (c *Client) getHttpPath(random bool, s ...string) string {
 	}
 
 	return fullPath
+}
+
+// buildValues builds a url.Values map according to the given value and ttl
+func buildValues(value string, ttl uint64) url.Values {
+	v := url.Values{}
+
+	if value != "" {
+		v.Set("value", value)
+	}
+
+	if ttl > 0 {
+		v.Set("ttl", fmt.Sprintf("%v", ttl))
+	}
+
+	return v
 }
