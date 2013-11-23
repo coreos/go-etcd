@@ -65,7 +65,7 @@ func (c *Client) get(key string, options options) (*Response, error) {
 		p += str
 	}
 
-	resp, err := c.sendRequest("GET", p, url.Values{})
+	resp, err := c.sendRequest("GET", p, nil)
 
 	if err != nil {
 		return nil, err
@@ -130,7 +130,6 @@ func (c *Client) post(key string, value string, ttl uint64) (*Response, error) {
 // delete issues a DELETE request
 func (c *Client) delete(key string, options options) (*Response, error) {
 	logger.Debugf("delete %s [%s]", key, c.cluster.Leader)
-	v := url.Values{}
 
 	p := path.Join("keys", key)
 	if options != nil {
@@ -141,7 +140,7 @@ func (c *Client) delete(key string, options options) (*Response, error) {
 		p += str
 	}
 
-	resp, err := c.sendRequest("DELETE", p, v)
+	resp, err := c.sendRequest("DELETE", p, nil)
 
 	if err != nil {
 		return nil, err
@@ -152,22 +151,22 @@ func (c *Client) delete(key string, options options) (*Response, error) {
 
 // sendRequest sends a HTTP request and returns a Response as defined by etcd
 func (c *Client) sendRequest(method string, _path string, values url.Values) (*Response, error) {
-	var body string = values.Encode()
 	var resp *http.Response
 	var req *http.Request
 
 	retry := 0
+
 	// if we connect to a follower, we will retry until we found a leader
 	for {
 		var httpPath string
 
-		// If _path has schema already, then it's assumed to be
-		// a complete URL and therefore needs no further processing.
 		u, err := url.Parse(_path)
 		if err != nil {
 			return nil, err
 		}
 
+		// If _path has schema already, then it's assumed to be
+		// a complete URL and therefore needs no further processing.
 		if u.Scheme != "" {
 			httpPath = _path
 		} else {
@@ -191,18 +190,19 @@ func (c *Client) sendRequest(method string, _path string, values url.Values) (*R
 		}
 
 		logger.Debug("send.request.to ", httpPath, " | method ", method)
-		if body == "" {
+		if values == nil {
 
 			req, _ = http.NewRequest(method, httpPath, nil)
 
 		} else {
-			req, _ = http.NewRequest(method, httpPath, strings.NewReader(body))
+			req, _ = http.NewRequest(method, httpPath, strings.NewReader(values.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
 		}
 
 		resp, err = c.httpClient.Do(req)
 
 		logger.Debug("recv.response.from ", httpPath)
+
 		// network error, change a machine!
 		if err != nil {
 			retry++
