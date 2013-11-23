@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"reflect"
 	"strings"
 	"time"
 )
@@ -49,12 +48,6 @@ type Client struct {
 	httpClient  *http.Client
 	persistence io.Writer
 }
-
-type options map[string]interface{}
-
-// An internally-used data structure that represents a mapping
-// between valid options and their kinds
-type validOptions map[string]reflect.Kind
 
 // NewClient create a basic client that is configured to be used
 // with the given machine list.

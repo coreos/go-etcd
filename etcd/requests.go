@@ -58,7 +58,7 @@ func (c *Client) get(key string, options options) (*Response, error) {
 		options["consistent"] = true
 	}
 	if options != nil {
-		str, err := optionsToString(options, VALID_GET_OPTIONS)
+		str, err := options.toParameters(VALID_GET_OPTIONS)
 		if err != nil {
 			return nil, err
 		}
@@ -80,7 +80,7 @@ func (c *Client) put(key string, value string, ttl uint64, options options) (*Re
 	p := path.Join("keys", key)
 
 	if options != nil {
-		str, err := optionsToString(options, VALID_PUT_OPTIONS)
+		str, err := options.toParameters(VALID_PUT_OPTIONS)
 		if err != nil {
 			return nil, err
 		}
@@ -116,7 +116,7 @@ func (c *Client) delete(key string, options options) (*Response, error) {
 
 	p := path.Join("keys", key)
 	if options != nil {
-		str, err := optionsToString(options, VALID_DELETE_OPTIONS)
+		str, err := options.toParameters(VALID_DELETE_OPTIONS)
 		if err != nil {
 			return nil, err
 		}
