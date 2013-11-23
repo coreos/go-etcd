@@ -14,30 +14,7 @@ import (
 	"time"
 )
 
-// Valid options for GET, PUT, POST, DELETE
-// Using CAPITALIZED_UNDERSCORE to emphasize that these
-// values are meant to be used as constants.
 var (
-	VALID_GET_OPTIONS = validOptions{
-		"recursive":  reflect.Bool,
-		"consistent": reflect.Bool,
-		"sorted":     reflect.Bool,
-		"wait":       reflect.Bool,
-		"waitIndex":  reflect.Uint64,
-	}
-
-	VALID_PUT_OPTIONS = validOptions{
-		"prevValue": reflect.String,
-		"prevIndex": reflect.Uint64,
-		"prevExist": reflect.Bool,
-	}
-
-	VALID_POST_OPTIONS = validOptions{}
-
-	VALID_DELETE_OPTIONS = validOptions{
-		"recursive": reflect.Bool,
-	}
-
 	curlChan chan string
 )
 
