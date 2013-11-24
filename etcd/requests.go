@@ -109,11 +109,16 @@ func (c *Client) sendRequest(method string, _path string, values url.Values) (*R
 	var resp *http.Response
 	var req *http.Request
 
-	retry := 0
+	trial := 0
 
 	// if we connect to a follower, we will retry until we found a leader
 	for {
 		var httpPath string
+
+		trial++
+		if trial > 2*len(c.cluster.Machines) {
+			return nil, fmt.Errorf("Cannot reach servers after %v time", trial)
+		}
 
 		u, err := url.Parse(_path)
 		if err != nil {
@@ -145,27 +150,22 @@ func (c *Client) sendRequest(method string, _path string, values url.Values) (*R
 		}
 
 		logger.Debug("send.request.to ", httpPath, " | method ", method)
+
 		if values == nil {
-
 			req, _ = http.NewRequest(method, httpPath, nil)
-
 		} else {
-			req, _ = http.NewRequest(method, httpPath, strings.NewReader(values.Encode()))
-			req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+			req, _ = http.NewRequest(method, httpPath,
+				strings.NewReader(values.Encode()))
+
+			req.Header.Set("Content-Type",
+				"application/x-www-form-urlencoded; param=value")
 		}
 
 		resp, err = c.httpClient.Do(req)
 
 		// network error, change a machine!
 		if err != nil {
-			retry++
-
-			if retry > 2*len(c.cluster.Machines) {
-				return nil, errors.New("Cannot reach servers")
-			}
-
-			c.switchLeader(retry % len(c.cluster.Machines))
-
+			c.switchLeader(trial % len(c.cluster.Machines))
 			time.Sleep(time.Millisecond * 200)
 			continue
 		}
@@ -188,11 +188,7 @@ func (c *Client) sendRequest(method string, _path string, values url.Values) (*R
 				continue
 			} else if resp.StatusCode == http.StatusInternalServerError {
 				resp.Body.Close()
-
-				retry++
-				if retry > 2*len(c.cluster.Machines) {
-					return nil, errors.New("Cannot reach servers")
-				}
+				time.Sleep(time.Millisecond * 200)
 				continue
 			} else {
 				logger.Debug("send.return.response ", httpPath)
