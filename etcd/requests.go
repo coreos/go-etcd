@@ -105,7 +105,7 @@ func (c *Client) delete(key string, options options) (*Response, error) {
 }
 
 // sendRequest sends a HTTP request and returns a Response as defined by etcd
-func (c *Client) sendRequest(method string, _path string, values url.Values) (*Response, error) {
+func (c *Client) sendRequest(method string, relativePath string, values url.Values) (*Response, error) {
 	var resp *http.Response
 	var req *http.Request
 
@@ -120,24 +120,13 @@ func (c *Client) sendRequest(method string, _path string, values url.Values) (*R
 			return nil, fmt.Errorf("Cannot reach servers after %v time", trial)
 		}
 
-		u, err := url.Parse(_path)
-		if err != nil {
-			return nil, err
-		}
-
-		// If _path has schema already, then it's assumed to be
-		// a complete URL and therefore needs no further processing.
-		if u.Scheme != "" {
-			httpPath = _path
+		if method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
+			// If it's a GET and consistency level is set to WEAK,
+			// then use a random machine.
+			httpPath = c.getHttpPath(true, relativePath)
 		} else {
-			if method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
-				// If it's a GET and consistency level is set to WEAK,
-				// then use a random machine.
-				httpPath = c.getHttpPath(true, _path)
-			} else {
-				// Else use the leader.
-				httpPath = c.getHttpPath(false, _path)
-			}
+			// Else use the leader.
+			httpPath = c.getHttpPath(false, relativePath)
 		}
 
 		// Return a cURL command if curlChan is set
@@ -161,7 +150,7 @@ func (c *Client) sendRequest(method string, _path string, values url.Values) (*R
 				"application/x-www-form-urlencoded; param=value")
 		}
 
-		resp, err = c.httpClient.Do(req)
+		resp, err := c.httpClient.Do(req)
 
 		// network error, change a machine!
 		if err != nil {
