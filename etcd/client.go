@@ -340,3 +340,11 @@ func (c *Client) updateLeader(httpPath string) {
 	c.cluster.Leader = leader
 	c.saveConfig()
 }
+
+// switchLeader switch the current leader to machines[num]
+func (c *Client) switchLeader(num int) {
+	logger.Debugf("switch.leader[from %v to %v]",
+		c.cluster.Leader, c.cluster.Machines[num])
+
+	c.cluster.Leader = c.cluster.Machines[num]
+}

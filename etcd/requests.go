@@ -156,22 +156,23 @@ func (c *Client) sendRequest(method string, _path string, values url.Values) (*R
 
 		resp, err = c.httpClient.Do(req)
 
-		logger.Debug("recv.response.from ", httpPath)
-
 		// network error, change a machine!
 		if err != nil {
 			retry++
+
 			if retry > 2*len(c.cluster.Machines) {
 				return nil, errors.New("Cannot reach servers")
 			}
-			num := retry % len(c.cluster.Machines)
-			logger.Debug("update.leader[", c.cluster.Leader, ",", c.cluster.Machines[num], "]")
-			c.cluster.Leader = c.cluster.Machines[num]
+
+			c.switchLeader(retry % len(c.cluster.Machines))
+
 			time.Sleep(time.Millisecond * 200)
 			continue
 		}
 
 		if resp != nil {
+			logger.Debug("recv.response.from ", httpPath)
+
 			if resp.StatusCode == http.StatusTemporaryRedirect {
 				httpPath := resp.Header.Get("Location")
 
@@ -199,6 +200,7 @@ func (c *Client) sendRequest(method string, _path string, values url.Values) (*R
 			}
 
 		}
+
 		logger.Debug("error.from ", httpPath, " ", err.Error())
 		return nil, err
 	}
