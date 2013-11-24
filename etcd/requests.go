@@ -1,7 +1,6 @@
 package etcd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -27,7 +26,7 @@ func ClearCurlChan() {
 }
 
 // get issues a GET request
-func (c *Client) get(key string, options options, respType responseType) (interface{}, error) {
+func (c *Client) get(key string, options options) (*RawResponse, error) {
 	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
 
 	p := path.Join("keys", key)
@@ -43,7 +42,7 @@ func (c *Client) get(key string, options options, respType responseType) (interf
 	}
 	p += str
 
-	resp, err := c.sendRequest("GET", p, nil, respType)
+	resp, err := c.sendRequest("GET", p, nil)
 
 	if err != nil {
 		return nil, err
@@ -53,8 +52,8 @@ func (c *Client) get(key string, options options, respType responseType) (interf
 }
 
 // put issues a PUT request
-func (c *Client) put(key string, value string, ttl uint64, options options,
-	respType responseType) (interface{}, error) {
+func (c *Client) put(key string, value string, ttl uint64,
+	options options) (*RawResponse, error) {
 
 	logger.Debugf("put %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := path.Join("keys", key)
@@ -65,7 +64,7 @@ func (c *Client) put(key string, value string, ttl uint64, options options,
 	}
 	p += str
 
-	resp, err := c.sendRequest("PUT", p, buildValues(value, ttl), respType)
+	resp, err := c.sendRequest("PUT", p, buildValues(value, ttl))
 
 	if err != nil {
 		return nil, err
@@ -75,11 +74,11 @@ func (c *Client) put(key string, value string, ttl uint64, options options,
 }
 
 // post issues a POST request
-func (c *Client) post(key string, value string, ttl uint64, respType responseType) (interface{}, error) {
+func (c *Client) post(key string, value string, ttl uint64) (*RawResponse, error) {
 	logger.Debugf("post %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := path.Join("keys", key)
 
-	resp, err := c.sendRequest("POST", p, buildValues(value, ttl), respType)
+	resp, err := c.sendRequest("POST", p, buildValues(value, ttl))
 
 	if err != nil {
 		return nil, err
@@ -89,7 +88,7 @@ func (c *Client) post(key string, value string, ttl uint64, respType responseTyp
 }
 
 // delete issues a DELETE request
-func (c *Client) delete(key string, options options, respType responseType) (interface{}, error) {
+func (c *Client) delete(key string, options options) (*RawResponse, error) {
 	logger.Debugf("delete %s [%s]", key, c.cluster.Leader)
 
 	p := path.Join("keys", key)
@@ -100,7 +99,7 @@ func (c *Client) delete(key string, options options, respType responseType) (int
 	}
 	p += str
 
-	resp, err := c.sendRequest("DELETE", p, nil, respType)
+	resp, err := c.sendRequest("DELETE", p, nil)
 
 	if err != nil {
 		return nil, err
@@ -110,8 +109,8 @@ func (c *Client) delete(key string, options options, respType responseType) (int
 }
 
 // sendRequest sends a HTTP request and returns a Response as defined by etcd
-func (c *Client) sendRequest(method string, relativePath string, values url.Values,
-	respType responseType) (interface{}, error) {
+func (c *Client) sendRequest(method string, relativePath string,
+	values url.Values) (*RawResponse, error) {
 
 	var req *http.Request
 	var resp *http.Response
@@ -186,24 +185,13 @@ func (c *Client) sendRequest(method string, relativePath string, values url.Valu
 		return nil, err
 	}
 
-	if respType == rawResponse {
-		return &RawResponse{Body: b, Header: resp.Header}, nil
+	r := &RawResponse{
+		StatusCode: resp.StatusCode,
+		Body:       b,
+		Header:     resp.Header,
 	}
 
-	if resp.StatusCode == http.StatusBadRequest {
-		logger.Debug("recv.handle.error", httpPath)
-		return nil, handleError(b)
-	}
-
-	result := new(Response)
-
-	err = json.Unmarshal(b, result)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return r, nil
 }
 
 // handle HTTP response

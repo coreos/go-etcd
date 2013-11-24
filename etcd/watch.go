@@ -57,10 +57,18 @@ func (c *Client) watchOnce(key string, waitIndex uint64, recursive bool, stop ch
 			options["recursive"] = true
 		}
 
-		resp, err := toResp(c.get(key, options, normalResponse))
+		raw, err := c.get(key, options)
 
 		if err != nil {
 			errChan <- err
+			return
+		}
+
+		resp, err := raw.toResponse()
+
+		if err != nil {
+			errChan <- err
+			return
 		}
 
 		respChan <- resp

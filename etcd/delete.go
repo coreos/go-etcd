@@ -7,10 +7,21 @@ package etcd
 // the file will be deleted.  If the key points
 // to a directory, then everything under the directory, include
 // all child directories, will be deleted.
+
 func (c *Client) Delete(key string, recursive bool) (*Response, error) {
+	raw, err := c.DeleteRaw(key, recursive)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return raw.toResponse()
+}
+
+func (c *Client) DeleteRaw(key string, recursive bool) (*RawResponse, error) {
 	ops := options{
 		"recursive": recursive,
 	}
 
-	return toResp(c.delete(key, ops, normalResponse))
+	return c.delete(key, ops)
 }

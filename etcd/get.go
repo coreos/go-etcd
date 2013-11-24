@@ -5,21 +5,23 @@ package etcd
 // it will be returned in sorted or unsorted order, depending on
 // the sort flag.  Note that contents under child directories
 // will not be returned.
+// Set recursive to true, to get those contents.
 
-// Set recursive to true, to get those contents, use GetAll.
 func (c *Client) Get(key string, sort, recursive bool) (*Response, error) {
-	ops := options{
-		"recursive": recursive,
-		"sorted":    sort,
-	}
-
-	r, err := c.get(key, ops, normalResponse)
+	raw, err := c.RawGet(key, sort, recursive)
 
 	if err != nil {
 		return nil, err
 	}
 
-	resp := r.(*Response)
+	return raw.toResponse()
+}
 
-	return resp, nil
+func (c *Client) RawGet(key string, sort, recursive bool) (*RawResponse, error) {
+	ops := options{
+		"recursive": recursive,
+		"sorted":    sort,
+	}
+
+	return c.get(key, ops)
 }
