@@ -14,5 +14,6 @@ func (c *Client) CompareAndSwap(key string, value string, ttl uint64, prevValue 
 	if prevIndex != 0 {
 		options["prevIndex"] = prevIndex
 	}
-	return c.put(key, value, ttl, options)
+
+	return toResp(c.put(key, value, ttl, options, normalResponse))
 }

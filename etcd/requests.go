@@ -23,7 +23,7 @@ func SetCurlChan(c chan string) {
 }
 
 // get issues a GET request
-func (c *Client) get(key string, options options) (*Response, error) {
+func (c *Client) get(key string, options options, respType responseType) (interface{}, error) {
 	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
 
 	p := path.Join("keys", key)
@@ -39,7 +39,7 @@ func (c *Client) get(key string, options options) (*Response, error) {
 	}
 	p += str
 
-	resp, err := c.sendRequest("GET", p, nil)
+	resp, err := c.sendRequest("GET", p, nil, respType)
 
 	if err != nil {
 		return nil, err
@@ -49,7 +49,9 @@ func (c *Client) get(key string, options options) (*Response, error) {
 }
 
 // put issues a PUT request
-func (c *Client) put(key string, value string, ttl uint64, options options) (*Response, error) {
+func (c *Client) put(key string, value string, ttl uint64, options options,
+	respType responseType) (interface{}, error) {
+
 	logger.Debugf("put %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := path.Join("keys", key)
 
@@ -59,7 +61,7 @@ func (c *Client) put(key string, value string, ttl uint64, options options) (*Re
 	}
 	p += str
 
-	resp, err := c.sendRequest("PUT", p, buildValues(value, ttl))
+	resp, err := c.sendRequest("PUT", p, buildValues(value, ttl), respType)
 
 	if err != nil {
 		return nil, err
@@ -69,11 +71,11 @@ func (c *Client) put(key string, value string, ttl uint64, options options) (*Re
 }
 
 // post issues a POST request
-func (c *Client) post(key string, value string, ttl uint64) (*Response, error) {
+func (c *Client) post(key string, value string, ttl uint64, respType responseType) (interface{}, error) {
 	logger.Debugf("post %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := path.Join("keys", key)
 
-	resp, err := c.sendRequest("POST", p, buildValues(value, ttl))
+	resp, err := c.sendRequest("POST", p, buildValues(value, ttl), respType)
 
 	if err != nil {
 		return nil, err
@@ -83,7 +85,7 @@ func (c *Client) post(key string, value string, ttl uint64) (*Response, error) {
 }
 
 // delete issues a DELETE request
-func (c *Client) delete(key string, options options) (*Response, error) {
+func (c *Client) delete(key string, options options, respType responseType) (interface{}, error) {
 	logger.Debugf("delete %s [%s]", key, c.cluster.Leader)
 
 	p := path.Join("keys", key)
@@ -94,7 +96,7 @@ func (c *Client) delete(key string, options options) (*Response, error) {
 	}
 	p += str
 
-	resp, err := c.sendRequest("DELETE", p, nil)
+	resp, err := c.sendRequest("DELETE", p, nil, respType)
 
 	if err != nil {
 		return nil, err
@@ -104,16 +106,19 @@ func (c *Client) delete(key string, options options) (*Response, error) {
 }
 
 // sendRequest sends a HTTP request and returns a Response as defined by etcd
-func (c *Client) sendRequest(method string, relativePath string, values url.Values) (*Response, error) {
+func (c *Client) sendRequest(method string, relativePath string, values url.Values,
+	respType responseType) (interface{}, error) {
+
 	var req *http.Request
+	var resp *http.Response
+	var httpPath string
+	var err error
 	var b []byte
 
 	trial := 0
 
 	// if we connect to a follower, we will retry until we found a leader
 	for {
-		var httpPath string
-
 		trial++
 		if trial > 2*len(c.cluster.Machines) {
 			return nil, fmt.Errorf("Cannot reach servers after %v time", trial)
@@ -149,10 +154,8 @@ func (c *Client) sendRequest(method string, relativePath string, values url.Valu
 				"application/x-www-form-urlencoded; param=value")
 		}
 
-		resp, err := c.httpClient.Do(req)
-
 		// network error, change a machine!
-		if err != nil {
+		if resp, err = c.httpClient.Do(req); err != nil {
 			c.switchLeader(trial % len(c.cluster.Machines))
 			time.Sleep(time.Millisecond * 200)
 			continue
@@ -178,9 +181,13 @@ func (c *Client) sendRequest(method string, relativePath string, values url.Valu
 		return nil, err
 	}
 
+	if respType == rawResponse {
+		return &RawResponse{Body: b, Header: resp.Header}, nil
+	}
+
 	var result *Response
 
-	err := json.Unmarshal(b, result)
+	err = json.Unmarshal(b, result)
 
 	if err != nil {
 		return nil, err

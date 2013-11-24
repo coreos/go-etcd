@@ -1,8 +1,31 @@
 package etcd
 
 import (
+	"net/http"
 	"time"
 )
+
+const (
+	rawResponse = iota
+	normalResponse
+)
+
+type responseType int
+
+type RawResponse struct {
+	Body   []byte
+	Header http.Header
+}
+
+func toRawResp(i interface{}, err error) (*RawResponse, error) {
+	if err != nil {
+		return nil, err
+	}
+
+	resp := i.(*RawResponse)
+
+	return resp, nil
+}
 
 // The response object from the server.
 type Response struct {
@@ -24,6 +47,17 @@ type Response struct {
 
 	// The command index of the raft machine when the command is executed
 	ModifiedIndex uint64 `json:"modifiedIndex"`
+}
+
+func toResp(i interface{}, err error) (*Response, error) {
+
+	if err != nil {
+		return nil, err
+	}
+
+	resp := i.(*Response)
+
+	return resp, nil
 }
 
 // When user list a directory, we add all the node into key-value pair slice
