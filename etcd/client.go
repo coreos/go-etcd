@@ -326,9 +326,7 @@ func dialTimeout(network, addr string) (net.Conn, error) {
 	return net.DialTimeout(network, addr, time.Second)
 }
 
-func (c *Client) updateLeader(httpPath string) {
-	u, _ := url.Parse(httpPath)
-
+func (c *Client) updateLeader(u *url.URL) {
 	var leader string
 	if u.Scheme == "" {
 		leader = "http://" + u.Host

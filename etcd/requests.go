@@ -2,7 +2,6 @@ package etcd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -106,8 +105,8 @@ func (c *Client) delete(key string, options options) (*Response, error) {
 
 // sendRequest sends a HTTP request and returns a Response as defined by etcd
 func (c *Client) sendRequest(method string, relativePath string, values url.Values) (*Response, error) {
-	var resp *http.Response
 	var req *http.Request
+	var b []byte
 
 	trial := 0
 
@@ -162,57 +161,66 @@ func (c *Client) sendRequest(method string, relativePath string, values url.Valu
 		if resp != nil {
 			logger.Debug("recv.response.from ", httpPath)
 
-			if resp.StatusCode == http.StatusTemporaryRedirect {
-				httpPath := resp.Header.Get("Location")
+			var ok bool
+			ok, b = c.handleResp(resp)
 
-				resp.Body.Close()
-
-				if httpPath == "" {
-					return nil, errors.New("Cannot get redirection location")
-				}
-
-				c.updateLeader(httpPath)
-				logger.Debug("send.redirect")
-				// try to connect the leader
+			if !ok {
 				continue
-			} else if resp.StatusCode == http.StatusInternalServerError {
-				resp.Body.Close()
-				time.Sleep(time.Millisecond * 200)
-				continue
-			} else {
-				logger.Debug("send.return.response ", httpPath)
-				break
 			}
 
+			logger.Debug("recv.success.", httpPath)
+			break
 		}
 
-		logger.Debug("error.from ", httpPath, " ", err.Error())
+		// should not reach here
+		// err and resp should not be nil at the same time
+		logger.Debug("error.from ", httpPath)
 		return nil, err
 	}
 
-	// Convert HTTP response to etcd response
-	b, err := ioutil.ReadAll(resp.Body)
+	var result *Response
 
-	resp.Body.Close()
+	err := json.Unmarshal(b, result)
 
 	if err != nil {
 		return nil, err
 	}
 
-	if !(resp.StatusCode == http.StatusOK ||
-		resp.StatusCode == http.StatusCreated) {
-		return nil, handleError(b)
+	return result, nil
+}
+
+// handle HTTP response
+// If status code is OK, read the http body.
+// If status code is TemporaryRedirect, update leader.
+// If status coid is InternalServerError, sleep for 200ms.
+func (c *Client) handleResp(resp *http.Response) (bool, []byte) {
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusTemporaryRedirect {
+		u, err := resp.Location()
+
+		if err != nil {
+			logger.Warning(err)
+		} else {
+			c.updateLeader(u)
+		}
+
+	} else if resp.StatusCode == http.StatusInternalServerError {
+		time.Sleep(time.Millisecond * 200)
+
+	} else if resp.StatusCode == http.StatusOK ||
+		resp.StatusCode == http.StatusCreated {
+		b, err := ioutil.ReadAll(resp.Body)
+
+		if err != nil {
+			return false, nil
+		}
+
+		return true, b
 	}
 
-	var result Response
-
-	err = json.Unmarshal(b, &result)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &result, nil
+	logger.Warning("bad status code ", resp.StatusCode)
+	return false, nil
 }
 
 func (c *Client) getHttpPath(random bool, s ...string) string {
