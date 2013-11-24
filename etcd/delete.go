@@ -9,7 +9,7 @@ package etcd
 // all child directories, will be deleted.
 func (c *Client) Delete(key string, recursive bool) (*Response, error) {
 	ops := options{
-		"recursive": true,
+		"recursive": recursive,
 	}
 
 	return toResp(c.delete(key, ops, normalResponse))

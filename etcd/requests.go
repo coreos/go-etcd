@@ -22,6 +22,10 @@ func SetCurlChan(c chan string) {
 	curlChan = c
 }
 
+func ClearCurlChan() {
+	curlChan = nil
+}
+
 // get issues a GET request
 func (c *Client) get(key string, options options, respType responseType) (interface{}, error) {
 	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
@@ -120,6 +124,7 @@ func (c *Client) sendRequest(method string, relativePath string, values url.Valu
 	// if we connect to a follower, we will retry until we found a leader
 	for {
 		trial++
+		logger.Debug("begin trail ", trial)
 		if trial > 2*len(c.cluster.Machines) {
 			return nil, fmt.Errorf("Cannot reach servers after %v time", trial)
 		}
@@ -185,7 +190,12 @@ func (c *Client) sendRequest(method string, relativePath string, values url.Valu
 		return &RawResponse{Body: b, Header: resp.Header}, nil
 	}
 
-	var result *Response
+	if resp.StatusCode == http.StatusBadRequest {
+		logger.Debug("recv.handle.error", httpPath)
+		return nil, handleError(b)
+	}
+
+	result := new(Response)
 
 	err = json.Unmarshal(b, result)
 
@@ -203,7 +213,9 @@ func (c *Client) sendRequest(method string, relativePath string, values url.Valu
 func (c *Client) handleResp(resp *http.Response) (bool, []byte) {
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusTemporaryRedirect {
+	code := resp.StatusCode
+
+	if code == http.StatusTemporaryRedirect {
 		u, err := resp.Location()
 
 		if err != nil {
@@ -212,11 +224,14 @@ func (c *Client) handleResp(resp *http.Response) (bool, []byte) {
 			c.updateLeader(u)
 		}
 
-	} else if resp.StatusCode == http.StatusInternalServerError {
+		return false, nil
+
+	} else if code == http.StatusInternalServerError {
 		time.Sleep(time.Millisecond * 200)
 
-	} else if resp.StatusCode == http.StatusOK ||
-		resp.StatusCode == http.StatusCreated {
+	} else if code == http.StatusOK ||
+		code == http.StatusCreated ||
+		code == http.StatusBadRequest {
 		b, err := ioutil.ReadAll(resp.Body)
 
 		if err != nil {

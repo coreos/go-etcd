@@ -9,7 +9,7 @@ package etcd
 // Set recursive to true, to get those contents, use GetAll.
 func (c *Client) Get(key string, sort, recursive bool) (*Response, error) {
 	ops := options{
-		"recursive": true,
+		"recursive": recursive,
 		"sorted":    sort,
 	}
 

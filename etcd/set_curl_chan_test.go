@@ -8,7 +8,8 @@ import (
 func TestSetCurlChan(t *testing.T) {
 	c := NewClient(nil)
 	defer func() {
-		c.DeleteAll("foo")
+		ClearCurlChan()
+		c.Delete("foo", true)
 	}()
 
 	curlChan := make(chan string, 1)
@@ -28,12 +29,12 @@ func TestSetCurlChan(t *testing.T) {
 	}
 
 	c.SetConsistency(STRONG_CONSISTENCY)
-	_, err = c.Get("foo", false)
+	_, err = c.Get("foo", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expected = fmt.Sprintf("curl -X GET %s/v2/keys/foo?consistent=true&sorted=false",
+	expected = fmt.Sprintf("curl -X GET %s/v2/keys/foo?consistent=true&recursive=false&sorted=false",
 		c.cluster.Leader)
 	actual = <-curlChan
 	if expected != actual {
