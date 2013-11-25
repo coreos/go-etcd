@@ -20,13 +20,28 @@ var (
 // channel. And after someone receive the channel, it will go on to watch that
 // prefix.  If a stop channel is given, client can close long-term watch using
 // the stop channel
-func (c *Client) Watch(prefix string, waitIndex uint64, recursive bool, receiver chan *Response, stop chan bool) (*Response, error) {
+func (c *Client) Watch(prefix string, waitIndex uint64, recursive bool,
+	receiver chan *Response, stop chan bool) (*Response, error) {
+
 	logger.Debugf("watch %s [%s]", prefix, c.cluster.Leader)
 	if receiver == nil {
-		return c.watchOnce(prefix, waitIndex, recursive, stop)
+		raw, err := c.watchOnce(prefix, waitIndex, recursive, stop)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return raw.toResponse()
 	} else {
 		for {
-			resp, err := c.watchOnce(prefix, waitIndex, recursive, stop)
+			raw, err := c.watchOnce(prefix, waitIndex, recursive, stop)
+
+			if err != nil {
+				return nil, err
+			}
+
+			resp, err := raw.toResponse()
+
 			if resp != nil {
 				waitIndex = resp.ModifiedIndex + 1
 				receiver <- resp
@@ -39,11 +54,39 @@ func (c *Client) Watch(prefix string, waitIndex uint64, recursive bool, receiver
 	return nil, nil
 }
 
+func (c *Client) RawWatch(prefix string, waitIndex uint64, recursive bool,
+	receiver chan *RawResponse, stop chan bool) (*RawResponse, error) {
+
+	logger.Debugf("rawWatch %s [%s]", prefix, c.cluster.Leader)
+	if receiver == nil {
+		return c.watchOnce(prefix, waitIndex, recursive, stop)
+	} else {
+		for {
+			raw, err := c.watchOnce(prefix, waitIndex, recursive, stop)
+
+			if err != nil {
+				return nil, err
+			}
+
+			resp, err := raw.toResponse()
+
+			if resp != nil {
+				waitIndex = resp.ModifiedIndex + 1
+				receiver <- raw
+			} else {
+				return nil, err
+			}
+		}
+	}
+
+	return nil, nil
+}
+
 // helper func
 // return when there is change under the given prefix
-func (c *Client) watchOnce(key string, waitIndex uint64, recursive bool, stop chan bool) (*Response, error) {
+func (c *Client) watchOnce(key string, waitIndex uint64, recursive bool, stop chan bool) (*RawResponse, error) {
 
-	respChan := make(chan *Response)
+	respChan := make(chan *RawResponse)
 	errChan := make(chan error)
 
 	go func() {
@@ -57,14 +100,7 @@ func (c *Client) watchOnce(key string, waitIndex uint64, recursive bool, stop ch
 			options["recursive"] = true
 		}
 
-		raw, err := c.get(key, options)
-
-		if err != nil {
-			errChan <- err
-			return
-		}
-
-		resp, err := raw.toResponse()
+		resp, err := c.get(key, options)
 
 		if err != nil {
 			errChan <- err

@@ -11,7 +11,7 @@ var logger *log.Logger
 func init() {
 	setLogger(log.PriErr)
 	// Uncomment the following line if you want to see lots of logs
-	//OpenDebug()
+	OpenDebug()
 }
 
 func OpenDebug() {
