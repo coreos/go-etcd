@@ -51,7 +51,8 @@ func SetCurlChan(c chan string) {
 func (c *Client) get(key string, options options) (*Response, error) {
 	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
 
-	p := path.Join("keys", key)
+	p := c.pathForKey(key)
+
 	// If consistency level is set to STRONG, append
 	// the `consistent` query string.
 	if c.config.Consistency == STRONG_CONSISTENCY {
@@ -132,7 +133,7 @@ func (c *Client) delete(key string, options options) (*Response, error) {
 	logger.Debugf("delete %s [%s]", key, c.cluster.Leader)
 	v := url.Values{}
 
-	p := path.Join("keys", key)
+	p := c.pathForKey(key)
 	if options != nil {
 		str, err := optionsToString(options, VALID_DELETE_OPTIONS)
 		if err != nil {
@@ -287,4 +288,12 @@ func (c *Client) getHttpPath(random bool, s ...string) string {
 	}
 
 	return fullPath
+}
+
+func (c *Client) pathForKey(key string) string {
+	p := path.Join("keys", key)
+	if p == "keys" {
+		p = "keys/"
+	}
+	return p
 }
