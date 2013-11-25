@@ -11,20 +11,6 @@ import (
 	"time"
 )
 
-var (
-	curlChan chan string
-)
-
-// SetCurlChan sets a channel to which cURL commands which can be used to
-// re-produce requests are sent.  This is useful for debugging.
-func SetCurlChan(c chan string) {
-	curlChan = c
-}
-
-func ClearCurlChan() {
-	curlChan = nil
-}
-
 // get issues a GET request
 func (c *Client) get(key string, options options) (*RawResponse, error) {
 	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
@@ -138,12 +124,12 @@ func (c *Client) sendRequest(method string, relativePath string,
 		}
 
 		// Return a cURL command if curlChan is set
-		if curlChan != nil {
+		if c.cURLch != nil {
 			command := fmt.Sprintf("curl -X %s %s", method, httpPath)
 			for key, value := range values {
 				command += fmt.Sprintf(" -d %s=%s", key, value[0])
 			}
-			curlChan <- command
+			c.sendCURL(command)
 		}
 
 		logger.Debug("send.request.to ", httpPath, " | method ", method)

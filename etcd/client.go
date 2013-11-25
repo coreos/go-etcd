@@ -29,6 +29,10 @@ const (
 	WEAK_CONSISTENCY   = "WEAK"
 )
 
+const (
+	defaultBufferSize = 10
+)
+
 type Cluster struct {
 	Leader   string   `json:"leader"`
 	Machines []string `json:"machines"`
@@ -47,6 +51,7 @@ type Client struct {
 	config      Config  `json:"config"`
 	httpClient  *http.Client
 	persistence io.Writer
+	cURLch      chan string
 }
 
 // NewClient create a basic client that is configured to be used
@@ -345,4 +350,18 @@ func (c *Client) switchLeader(num int) {
 		c.cluster.Leader, c.cluster.Machines[num])
 
 	c.cluster.Leader = c.cluster.Machines[num]
+}
+
+func (c *Client) OpenCURL() {
+	c.cURLch = make(chan string, defaultBufferSize)
+}
+
+func (c *Client) sendCURL(command string) {
+	go func() {
+		c.cURLch <- command
+	}()
+}
+
+func (c *Client) RecvCURL() string {
+	return <-c.cURLch
 }
