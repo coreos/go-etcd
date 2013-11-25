@@ -356,6 +356,10 @@ func (c *Client) OpenCURL() {
 	c.cURLch = make(chan string, defaultBufferSize)
 }
 
+func (c *Client) CloseCURL() {
+	c.cURLch = nil
+}
+
 func (c *Client) sendCURL(command string) {
 	go func() {
 		c.cURLch <- command
