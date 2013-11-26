@@ -32,23 +32,23 @@ func (c *Client) Watch(prefix string, waitIndex uint64, recursive bool,
 		}
 
 		return raw.toResponse()
-	} else {
-		for {
-			raw, err := c.watchOnce(prefix, waitIndex, recursive, stop)
+	}
 
-			if err != nil {
-				return nil, err
-			}
+	for {
+		raw, err := c.watchOnce(prefix, waitIndex, recursive, stop)
 
-			resp, err := raw.toResponse()
-
-			if resp != nil {
-				waitIndex = resp.ModifiedIndex + 1
-				receiver <- resp
-			} else {
-				return nil, err
-			}
+		if err != nil {
+			return nil, err
 		}
+
+		resp, err := raw.toResponse()
+
+		if resp == nil {
+			return nil, err
+		}
+
+		waitIndex = resp.ModifiedIndex + 1
+		receiver <- resp
 	}
 
 	return nil, nil
@@ -60,23 +60,23 @@ func (c *Client) RawWatch(prefix string, waitIndex uint64, recursive bool,
 	logger.Debugf("rawWatch %s [%s]", prefix, c.cluster.Leader)
 	if receiver == nil {
 		return c.watchOnce(prefix, waitIndex, recursive, stop)
-	} else {
-		for {
-			raw, err := c.watchOnce(prefix, waitIndex, recursive, stop)
+	}
 
-			if err != nil {
-				return nil, err
-			}
+	for {
+		raw, err := c.watchOnce(prefix, waitIndex, recursive, stop)
 
-			resp, err := raw.toResponse()
-
-			if resp != nil {
-				waitIndex = resp.ModifiedIndex + 1
-				receiver <- raw
-			} else {
-				return nil, err
-			}
+		if err != nil {
+			return nil, err
 		}
+
+		resp, err := raw.toResponse()
+
+		if resp == nil {
+			return nil, err
+		}
+
+		waitIndex = resp.ModifiedIndex + 1
+		receiver <- raw
 	}
 
 	return nil, nil
