@@ -43,7 +43,7 @@ func (c *Client) Watch(prefix string, waitIndex uint64, recursive bool,
 
 		resp, err := raw.toResponse()
 
-		if resp == nil {
+		if err != nil {
 			return nil, err
 		}
 
@@ -71,7 +71,7 @@ func (c *Client) RawWatch(prefix string, waitIndex uint64, recursive bool,
 
 		resp, err := raw.toResponse()
 
-		if resp == nil {
+		if err != nil {
 			return nil, err
 		}
 
