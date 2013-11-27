@@ -2,7 +2,7 @@ package etcd
 
 // DeleteAll deletes everything under the given key.  If the key
 // points to a file, the file will be deleted.  If the key points
-// to a directory, then everything under the directory, include
+// to a directory, then everything under the directory, including
 // all child directories, will be deleted.
 func (c *Client) DeleteAll(key string) (*Response, error) {
 	return c.delete(key, options{
