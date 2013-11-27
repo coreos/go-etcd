@@ -2,7 +2,7 @@ package etcd
 
 // GetDir gets the all contents under the given key.
 // If the key points to a file, the file is returned.
-// If the key points to a directory, everything under it is returnd,
+// If the key points to a directory, everything under it is returned,
 // including all contents under all child directories.
 func (c *Client) GetAll(key string, sort bool) (*Response, error) {
 	return c.get(key, options{

@@ -16,8 +16,8 @@ var (
 // will be returned.
 //
 // If a receiver channel is given, it will be a long-term watch. Watch will block at the
-// channel. And after someone receive the channel, it will go on to watch that prefix.
-// If a stop channel is given, client can close long-term watch using the stop channel
+// channel. After someone receives the channel, it will go on to watch that prefix.
+// If a stop channel is given, the client can close long-term watch using the stop channel.
 func (c *Client) WatchAll(prefix string, waitIndex uint64, receiver chan *Response, stop chan bool) (*Response, error) {
 	return c.watch(prefix, waitIndex, true, receiver, stop)
 }
@@ -26,9 +26,9 @@ func (c *Client) WatchAll(prefix string, waitIndex uint64, receiver chan *Respon
 // watch for the latest change, set waitIndex = 0.
 //
 // If a receiver channel is given, it will be a long-term watch. Watch will block at the
-// channel. And after someone receive the channel, it will go on to watch that
-// prefix.  If a stop channel is given, client can close long-term watch using
-// the stop channel
+// channel. After someone receives the channel, it will go on to watch that
+// prefix.  If a stop channel is given, the client can close long-term watch using
+// the stop channel.
 func (c *Client) Watch(key string, waitIndex uint64, receiver chan *Response, stop chan bool) (*Response, error) {
 	return c.watch(key, waitIndex, false, receiver, stop)
 }
