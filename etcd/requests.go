@@ -180,8 +180,8 @@ func (c *Client) sendRequest(method string, relativePath string,
 	return r, nil
 }
 
-// handle HTTP response
-// If status code is OK, read the http body.
+// handleResp handles the responses from the etcd server
+// If status code is OK, read the http body and return it as byte array
 // If status code is TemporaryRedirect, update leader.
 // If status code is InternalServerError, sleep for 200ms.
 func (c *Client) handleResp(resp *http.Response) (bool, []byte) {
