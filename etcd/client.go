@@ -362,7 +362,10 @@ func (c *Client) CloseCURL() {
 
 func (c *Client) sendCURL(command string) {
 	go func() {
-		c.cURLch <- command
+		select {
+		case c.cURLch <- command:
+		default:
+		}
 	}()
 }
 
