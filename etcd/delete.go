@@ -5,9 +5,8 @@ package etcd
 // directory, the method will fail.
 // When recursive set to true, if the key points to a file,
 // the file will be deleted.  If the key points
-// to a directory, then everything under the directory, include
+// to a directory, then everything under the directory, including
 // all child directories, will be deleted.
-
 func (c *Client) Delete(key string, recursive bool) (*Response, error) {
 	raw, err := c.DeleteRaw(key, recursive)
 
