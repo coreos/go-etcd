@@ -15,7 +15,12 @@ import (
 func (c *Client) get(key string, options options) (*RawResponse, error) {
 	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
 
-	p := path.Join("keys", key)
+	var p string
+	if key == "/" {
+		p = key
+	} else {
+		p = path.Join("keys", key)
+	}
 	// If consistency level is set to STRONG, append
 	// the `consistent` query string.
 	if c.config.Consistency == STRONG_CONSISTENCY {
