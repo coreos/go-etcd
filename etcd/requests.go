@@ -110,7 +110,8 @@ func (c *Client) sendRequest(method string, relativePath string,
 		trial++
 		logger.Debug("begin trail ", trial)
 		if trial > 2*len(c.cluster.Machines) {
-			return nil, fmt.Errorf("Cannot reach servers after %v time", trial)
+			return nil, newError(ErrCodeEtcdNotReachable,
+				"Tried to connect to each peer twice and failed", 0)
 		}
 
 		if method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
