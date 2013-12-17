@@ -17,8 +17,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	if !(resp.Node.Value == "") {
-		t.Fatalf("Delete failed with %s %s", resp.Node.PrevValue,
-			resp.Node.Value)
+		t.Fatalf("Delete failed with %s", resp.Node.Value)
 	}
 
 	resp, err = c.Delete("foo", false)
