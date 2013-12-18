@@ -51,7 +51,6 @@ type Response struct {
 
 type Node struct {
 	Key           string     `json:"key, omitempty"`
-	PrevValue     string     `json:"prevValue,omitempty"`
 	Value         string     `json:"value,omitempty"`
 	Dir           bool       `json:"dir,omitempty"`
 	Expiration    *time.Time `json:"expiration,omitempty"`
