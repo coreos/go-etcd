@@ -32,7 +32,7 @@ var (
 )
 
 func (rr *RawResponse) toResponse() (*Response, error) {
-	if rr.StatusCode == http.StatusBadRequest {
+	if rr.StatusCode != http.StatusOK && rr.StatusCode != http.StatusCreated {
 		return nil, handleError(rr.Body)
 	}
 
