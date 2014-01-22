@@ -268,7 +268,7 @@ func (c *Client) SyncCluster() bool {
 // internalSyncCluster syncs cluster information using the given machine list.
 func (c *Client) internalSyncCluster(machines []string) bool {
 	for _, machine := range machines {
-		httpPath := c.createHttpPath(machine, version+"/machines")
+		httpPath := c.createHttpPath(machine, path.Join(version, "machines"))
 		resp, err := c.httpClient.Get(httpPath)
 		if err != nil {
 			// try another machine in the cluster
@@ -299,8 +299,12 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 // createHttpPath creates a complete HTTP URL.
 // serverName should contain both the host name and a port number, if any.
 func (c *Client) createHttpPath(serverName string, _path string) string {
-	u, _ := url.Parse(serverName)
-	u.Path = path.Join(u.Path, "/", _path)
+	u, err := url.Parse(serverName)
+	if err != nil {
+		panic(err)
+	}
+
+	u.Path = path.Join(u.Path, _path)
 
 	if u.Scheme == "" {
 		u.Scheme = "http"
