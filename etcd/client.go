@@ -149,6 +149,11 @@ func NewClientFromReader(reader io.Reader) (*Client, error) {
 	return c, nil
 }
 
+// Override the Client's HTTP Transport object
+func (c *Client) SetTransport(tr *http.Transport) {
+	c.httpClient.Transport = tr
+}
+
 // initHTTPClient initializes a HTTP client for etcd client
 func (c *Client) initHTTPClient() {
 	tr := &http.Transport{
