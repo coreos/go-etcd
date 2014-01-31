@@ -6,25 +6,18 @@ import (
 	"strings"
 )
 
-type Logger interface {
-	Debug(args ...interface{})
-	Debugf(fmt string, args ...interface{})
-	Warning(args ...interface{})
-	Warningf(fmt string, args ...interface{})
-}
-
-var logger Logger
-
-func SetLogger(log Logger) {
-	logger = log
-}
-
-func GetLogger() Logger {
-	return logger
-}
+var logger log.Logger
 
 type defaultLogger struct {
 	log *log.Logger
+}
+
+func SetLogger(l defaultLogger) {
+	logger = *l.log
+}
+
+func GetLogger() log.Logger {
+	return logger
 }
 
 func (p *defaultLogger) Debug(args ...interface{}) {
@@ -49,5 +42,5 @@ func (p *defaultLogger) Warningf(fmt string, args ...interface{}) {
 
 func init() {
 	// Default logger uses the go default log.
-	SetLogger(&defaultLogger{log.New(ioutil.Discard, "go-etcd", log.LstdFlags)})
+	SetLogger(defaultLogger{log.New(ioutil.Discard, "go-etcd", log.LstdFlags)})
 }

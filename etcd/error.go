@@ -40,7 +40,7 @@ func handleError(b []byte) error {
 
 	err := json.Unmarshal(b, etcdErr)
 	if err != nil {
-		logger.Warningf("cannot unmarshal etcd error: %v", err)
+		logger.Printf("cannot unmarshal etcd error: %v", err)
 		return err
 	}
 
