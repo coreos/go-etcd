@@ -23,7 +23,7 @@ var (
 // the stop channel.
 func (c *Client) Watch(prefix string, waitIndex uint64, recursive bool,
 	receiver chan *Response, stop chan bool) (*Response, error) {
-	logger.Debugf("watch %s [%s]", prefix, c.cluster.Leader)
+	logger.Printf("watch %s [%s]", prefix, c.cluster.Leader)
 	if receiver == nil {
 		raw, err := c.watchOnce(prefix, waitIndex, recursive, stop)
 
@@ -57,7 +57,7 @@ func (c *Client) Watch(prefix string, waitIndex uint64, recursive bool,
 func (c *Client) RawWatch(prefix string, waitIndex uint64, recursive bool,
 	receiver chan *RawResponse, stop chan bool) (*RawResponse, error) {
 
-	logger.Debugf("rawWatch %s [%s]", prefix, c.cluster.Leader)
+	logger.Printf("rawWatch %s [%s]", prefix, c.cluster.Leader)
 	if receiver == nil {
 		return c.watchOnce(prefix, waitIndex, recursive, stop)
 	}

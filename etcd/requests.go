@@ -13,7 +13,7 @@ import (
 
 // get issues a GET request
 func (c *Client) get(key string, options options) (*RawResponse, error) {
-	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
+	logger.Printf("get %s [%s]", key, c.cluster.Leader)
 	p := keyToPath(key)
 
 	// If consistency level is set to STRONG, append
@@ -41,7 +41,7 @@ func (c *Client) get(key string, options options) (*RawResponse, error) {
 func (c *Client) put(key string, value string, ttl uint64,
 	options options) (*RawResponse, error) {
 
-	logger.Debugf("put %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
+	logger.Printf("put %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := keyToPath(key)
 
 	str, err := options.toParameters(VALID_PUT_OPTIONS)
@@ -61,7 +61,7 @@ func (c *Client) put(key string, value string, ttl uint64,
 
 // post issues a POST request
 func (c *Client) post(key string, value string, ttl uint64) (*RawResponse, error) {
-	logger.Debugf("post %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
+	logger.Printf("post %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := keyToPath(key)
 
 	resp, err := c.sendRequest("POST", p, buildValues(value, ttl))
@@ -75,7 +75,7 @@ func (c *Client) post(key string, value string, ttl uint64) (*RawResponse, error
 
 // delete issues a DELETE request
 func (c *Client) delete(key string, options options) (*RawResponse, error) {
-	logger.Debugf("delete %s [%s]", key, c.cluster.Leader)
+	logger.Printf("delete %s [%s]", key, c.cluster.Leader)
 	p := keyToPath(key)
 
 	str, err := options.toParameters(VALID_DELETE_OPTIONS)
@@ -108,7 +108,7 @@ func (c *Client) sendRequest(method string, relativePath string,
 	// if we connect to a follower, we will retry until we found a leader
 	for {
 		trial++
-		logger.Debug("begin trail ", trial)
+		logger.Printf("begin trail ", trial)
 		if trial > 2*len(c.cluster.Machines) {
 			return nil, newError(ErrCodeEtcdNotReachable,
 				"Tried to connect to each peer twice and failed", 0)
@@ -132,7 +132,7 @@ func (c *Client) sendRequest(method string, relativePath string,
 			c.sendCURL(command)
 		}
 
-		logger.Debug("send.request.to ", httpPath, " | method ", method)
+		logger.Printf("send.request.to ", httpPath, " | method ", method)
 
 		if values == nil {
 			req, _ = http.NewRequest(method, httpPath, nil)
@@ -146,14 +146,14 @@ func (c *Client) sendRequest(method string, relativePath string,
 
 		// network error, change a machine!
 		if resp, err = c.httpClient.Do(req); err != nil {
-			logger.Debug("network error: ", err.Error())
+			logger.Printf("network error: ", err.Error())
 			c.cluster.switchLeader(trial % len(c.cluster.Machines))
 			time.Sleep(time.Millisecond * 200)
 			continue
 		}
 
 		if resp != nil {
-			logger.Debug("recv.response.from ", httpPath)
+			logger.Printf("recv.response.from ", httpPath)
 
 			var ok bool
 			ok, b = c.handleResp(resp)
@@ -162,13 +162,13 @@ func (c *Client) sendRequest(method string, relativePath string,
 				continue
 			}
 
-			logger.Debug("recv.success.", httpPath)
+			logger.Printf("recv.success.", httpPath)
 			break
 		}
 
 		// should not reach here
 		// err and resp should not be nil at the same time
-		logger.Debug("error.from ", httpPath)
+		logger.Printf("error.from ", httpPath)
 		return nil, err
 	}
 
@@ -194,7 +194,7 @@ func (c *Client) handleResp(resp *http.Response) (bool, []byte) {
 		u, err := resp.Location()
 
 		if err != nil {
-			logger.Warning(err)
+			logger.Print(err)
 		} else {
 			c.cluster.updateLeaderFromURL(u)
 		}
@@ -214,7 +214,7 @@ func (c *Client) handleResp(resp *http.Response) (bool, []byte) {
 		return true, b
 	}
 
-	logger.Warning("bad status code ", resp.StatusCode)
+	logger.Printf("bad status code ", resp.StatusCode)
 	return false, nil
 }
 

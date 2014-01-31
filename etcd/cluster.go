@@ -25,7 +25,7 @@ func NewCluster(machines []string) *Cluster {
 
 // switchLeader switch the current leader to machines[num]
 func (cl *Cluster) switchLeader(num int) {
-	logger.Debugf("switch.leader[from %v to %v]",
+	logger.Printf("switch.leader[from %v to %v]",
 		cl.Leader, cl.Machines[num])
 
 	cl.Leader = cl.Machines[num]
@@ -36,7 +36,7 @@ func (cl *Cluster) updateFromStr(machines string) {
 }
 
 func (cl *Cluster) updateLeader(leader string) {
-	logger.Debugf("update.leader[%s,%s]", cl.Leader, leader)
+	logger.Printf("update.leader[%s,%s]", cl.Leader, leader)
 	cl.Leader = leader
 }
 

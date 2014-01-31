@@ -293,7 +293,7 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 			// the first one in the machine list is the leader
 			c.cluster.switchLeader(0)
 
-			logger.Debug("sync.machines ", c.cluster.Machines)
+			logger.Printf("sync.machines ", c.cluster.Machines)
 			c.saveConfig()
 			return true
 		}
