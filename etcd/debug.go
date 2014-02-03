@@ -21,10 +21,12 @@ type etcdLogger struct {
 }
 
 func (p *etcdLogger) Debug(args ...interface{}) {
+	args[0] = "DEBUG: " + args[0].(string)
 	p.log.Println(args)
 }
 
 func (p *etcdLogger) Debugf(fmt string, args ...interface{}) {
+	args[0] = "DEBUG: " + args[0].(string)
 	// Append newline if necessary
 	if !strings.HasSuffix(fmt, "\n") {
 		fmt = fmt + "\n"
@@ -33,11 +35,17 @@ func (p *etcdLogger) Debugf(fmt string, args ...interface{}) {
 }
 
 func (p *etcdLogger) Warning(args ...interface{}) {
-	p.Debug(args)
+	args[0] = "WARNING: " + args[0].(string)
+	p.log.Println(args)
 }
 
 func (p *etcdLogger) Warningf(fmt string, args ...interface{}) {
-	p.Debugf(fmt, args)
+	// Append newline if necessary
+	if !strings.HasSuffix(fmt, "\n") {
+		fmt = fmt + "\n"
+	}
+	args[0] = "WARNING: " + args[0].(string)
+	p.log.Printf(fmt, args)
 }
 
 func init() {
