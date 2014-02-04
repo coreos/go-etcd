@@ -220,18 +220,14 @@ func (c *Client) handleResp(resp *http.Response) (bool, []byte) {
 
 func (c *Client) getHttpPath(random bool, s ...string) string {
 	var machine string
+
 	if random {
 		machine = c.cluster.Machines[rand.Intn(len(c.cluster.Machines))]
 	} else {
 		machine = c.cluster.Leader
 	}
 
-	fullPath := machine + "/" + version
-	for _, seg := range s {
-		fullPath = fullPath + "/" + seg
-	}
-
-	return fullPath
+	return machine + "/" + strings.Join(s, "/")
 }
 
 // buildValues builds a url.Values map according to the given value and ttl
