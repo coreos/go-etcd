@@ -42,6 +42,7 @@ type Client struct {
 	httpClient  *http.Client
 	persistence io.Writer
 	cURLch      chan string
+	keyPrefix   string
 }
 
 // NewClient create a basic client that is configured to be used
@@ -55,8 +56,9 @@ func NewClient(machines []string) *Client {
 	}
 
 	client := &Client{
-		cluster: NewCluster(machines),
-		config:  config,
+		cluster:   NewCluster(machines),
+		config:    config,
+		keyPrefix: path.Join(version, "keys"),
 	}
 
 	client.initHTTPClient()
@@ -83,8 +85,9 @@ func NewTLSClient(machines []string, cert, key, caCert string) (*Client, error) 
 	}
 
 	client := &Client{
-		cluster: NewCluster(machines),
-		config:  config,
+		cluster:   NewCluster(machines),
+		config:    config,
+		keyPrefix: path.Join(version, "keys"),
 	}
 
 	err := client.initHTTPSClient(cert, key)
@@ -152,6 +155,12 @@ func NewClientFromReader(reader io.Reader) (*Client, error) {
 // Override the Client's HTTP Transport object
 func (c *Client) SetTransport(tr *http.Transport) {
 	c.httpClient.Transport = tr
+}
+
+// SetKeyPrefix changes the key prefix from the default `/v2/keys` to whatever
+// is set.
+func (c *Client) SetKeyPrefix(prefix string) {
+	c.keyPrefix = prefix
 }
 
 // initHTTPClient initializes a HTTP client for etcd client
