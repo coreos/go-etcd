@@ -82,10 +82,58 @@ func (c *Client) RawWatch(prefix string, waitIndex uint64, recursive bool,
 	return nil, nil
 }
 
+func (c *Client) AsyncWatch(prefix string, waitIndex uint64, recursive bool) (<-chan *Response, chan<- bool, <-chan error, error) {
+	logger.Debugf("watch %s [%s]", prefix, c.cluster.Leader)
+
+	options := options{
+		"wait": true,
+	}
+	if waitIndex > 0 {
+		options["waitIndex"] = waitIndex
+	}
+	if recursive {
+		options["recursive"] = true
+	}
+
+	innerRespChan, stopChan, innerErrChan, err := c.asyncGet(prefix, options)
+
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	respChan := make(chan *Response)
+	errChan := make(chan error)
+
+	go func() {
+		defer close(respChan)
+		defer close(errChan)
+
+		select {
+		case raw, ok := <-innerRespChan:
+			if !ok {
+				return
+			}
+			response, err := raw.toResponse()
+			if err != nil {
+				errChan <- err
+				return
+			}
+			respChan <- response
+		case err, ok := <-innerErrChan:
+			if !ok {
+				return
+			}
+
+			errChan <- err
+		}
+	}()
+
+	return respChan, stopChan, errChan, nil
+}
+
 // helper func
 // return when there is change under the given prefix
 func (c *Client) watchOnce(key string, waitIndex uint64, recursive bool, stop chan bool) (*RawResponse, error) {
-
 	respChan := make(chan *RawResponse, 1)
 	errChan := make(chan error)
 
