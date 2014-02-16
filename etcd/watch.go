@@ -33,6 +33,7 @@ func (c *Client) Watch(prefix string, waitIndex uint64, recursive bool,
 
 		return raw.toResponse()
 	}
+	defer close(receiver)
 
 	for {
 		raw, err := c.watchOnce(prefix, waitIndex, recursive, stop)
