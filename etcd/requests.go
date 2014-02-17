@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -226,12 +227,13 @@ func (c *Client) getHttpPath(random bool, s ...string) string {
 		machine = c.cluster.Leader
 	}
 
-	fullPath := machine + "/" + version
+	fullPathBuf := bytes.NewBufferString(machine)
 	for _, seg := range s {
-		fullPath = fullPath + "/" + seg
+		fullPathBuf.WriteString("/")
+		fullPathBuf.WriteString(seg)
 	}
 
-	return fullPath
+	return fullPathBuf.String()
 }
 
 // buildValues builds a url.Values map according to the given value and ttl
@@ -249,18 +251,18 @@ func buildValues(value string, ttl uint64) url.Values {
 	return v
 }
 
-// convert key string to http path exclude version
-// for example: key[foo] -> path[keys/foo]
-// key[/] -> path[keys/]
+// convert key string to http path include version
+// for example: key[foo] -> path[v2/keys/foo]
+// key[/] -> path[v2/keys/]
 func keyToPath(key string) string {
-	p := path.Join("keys", key)
+	pathBuf := bytes.NewBufferString(path.Join(version, "keys", key))
 
 	// corner case: if key is "/" or "//" ect
 	// path join will clear the tailing "/"
 	// we need to add it back
-	if p == "keys" {
-		p = "keys/"
+	if key == "/" || key == "//" {
+		pathBuf.WriteString("/")
 	}
 
-	return p
+	return pathBuf.String()
 }
