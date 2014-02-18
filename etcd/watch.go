@@ -31,7 +31,7 @@ func (c *Client) Watch(prefix string, waitIndex uint64, recursive bool,
 			return nil, err
 		}
 
-		return raw.toResponse()
+		return raw.Unmarshal()
 	}
 	defer close(receiver)
 
@@ -42,7 +42,7 @@ func (c *Client) Watch(prefix string, waitIndex uint64, recursive bool,
 			return nil, err
 		}
 
-		resp, err := raw.toResponse()
+		resp, err := raw.Unmarshal()
 
 		if err != nil {
 			return nil, err
@@ -70,7 +70,7 @@ func (c *Client) RawWatch(prefix string, waitIndex uint64, recursive bool,
 			return nil, err
 		}
 
-		resp, err := raw.toResponse()
+		resp, err := raw.Unmarshal()
 
 		if err != nil {
 			return nil, err
