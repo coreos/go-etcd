@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -101,18 +102,19 @@ func (c *Client) sendRequest(method string, relativePath string,
 	var resp *http.Response
 	var httpPath string
 	var err error
-	var b []byte
+	var respBody []byte
 
-	trial := 0
+	reqs := make([]http.Request, 0)
+	resps := make([]http.Response, 0)
 
-	// if we connect to a follower, we will retry until we found a leader
-	for {
-		trial++
-		logger.Debug("begin trail ", trial)
-		if trial > 2*len(c.cluster.Machines) {
-			return nil, newError(ErrCodeEtcdNotReachable,
-				"Tried to connect to each peer twice and failed", 0)
-		}
+	checkRetry := c.CheckRetry
+	if checkRetry == nil {
+		checkRetry = DefaultCheckRetry
+	}
+
+	// if we connect to a follower, we will retry until we find a leader
+	for attempt := 0; ; attempt++ {
+		logger.Debug("begin attempt", attempt, "for", relativePath)
 
 		if method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
 			// If it's a GET and consistency level is set to WEAK,
@@ -132,7 +134,7 @@ func (c *Client) sendRequest(method string, relativePath string,
 			c.sendCURL(command)
 		}
 
-		logger.Debug("send.request.to ", httpPath, " | method ", method)
+		logger.Debug("send.request.to", httpPath, "| method", method)
 
 		if values == nil {
 			req, _ = http.NewRequest(method, httpPath, nil)
@@ -144,78 +146,91 @@ func (c *Client) sendRequest(method string, relativePath string,
 				"application/x-www-form-urlencoded; param=value")
 		}
 
+		resp, err = c.httpClient.Do(req)
+		reqs = append(reqs, *req)
+		resps = append(resps, *resp)
+
 		// network error, change a machine!
-		if resp, err = c.httpClient.Do(req); err != nil {
-			logger.Debug("network error: ", err.Error())
-			c.cluster.switchLeader(trial % len(c.cluster.Machines))
-			time.Sleep(time.Millisecond * 200)
+		if err != nil {
+			logger.Debug("network error:", err.Error())
+			if checkErr := checkRetry(c.cluster, reqs, resps, err); checkErr != nil {
+				return nil, checkErr
+			}
+
+			c.cluster.switchLeader(attempt % len(c.cluster.Machines))
 			continue
 		}
 
-		if resp != nil {
-			logger.Debug("recv.response.from ", httpPath)
+		// if there is no error, it should receive response
+		defer resp.Body.Close()
+		logger.Debug("recv.response.from", httpPath)
 
-			var ok bool
-			ok, b = c.handleResp(resp)
-
-			if !ok {
-				continue
+		if validHttpStatusCode[resp.StatusCode] {
+			// try to read byte code and break the loop
+			respBody, err = ioutil.ReadAll(resp.Body)
+			if err == nil {
+				logger.Debug("recv.success.", httpPath)
+				break
 			}
-
-			logger.Debug("recv.success.", httpPath)
-			break
 		}
 
-		// should not reach here
-		// err and resp should not be nil at the same time
-		logger.Debug("error.from ", httpPath)
-		return nil, err
+		// if resp is TemporaryRedirect, set the new leader and retry
+		if resp.StatusCode == http.StatusTemporaryRedirect {
+			u, err := resp.Location()
+
+			if err != nil {
+				logger.Warning(err)
+			} else {
+				// Update cluster leader based on redirect location
+				// because it should point to the leader address
+				c.cluster.updateLeaderFromURL(u)
+				logger.Debug("recv.response.relocate", u.String())
+			}
+			continue
+		}
+
+		if checkErr := checkRetry(c.cluster, reqs, resps,
+			errors.New("Unexpected HTTP status code")); checkErr != nil {
+			return nil, checkErr
+		}
 	}
 
 	r := &RawResponse{
 		StatusCode: resp.StatusCode,
-		Body:       b,
+		Body:       respBody,
 		Header:     resp.Header,
 	}
 
 	return r, nil
 }
 
-// handleResp handles the responses from the etcd server
-// If status code is OK, read the http body and return it as byte array
-// If status code is TemporaryRedirect, update leader.
+// DefaultCheckRetry checks retry cases
+// If it has retried 2 * machine number, stop to retry it anymore
+// If resp is nil, sleep for 200ms
 // If status code is InternalServerError, sleep for 200ms.
-func (c *Client) handleResp(resp *http.Response) (bool, []byte) {
-	defer resp.Body.Close()
+func DefaultCheckRetry(cluster *Cluster, reqs []http.Request,
+	resps []http.Response, err error) error {
 
-	code := resp.StatusCode
-
-	if code == http.StatusTemporaryRedirect {
-		u, err := resp.Location()
-
-		if err != nil {
-			logger.Warning(err)
-		} else {
-			c.cluster.updateLeaderFromURL(u)
-		}
-
-		return false, nil
-
-	} else if code == http.StatusInternalServerError {
-		time.Sleep(time.Millisecond * 200)
-
-	} else if validHttpStatusCode[code] {
-		b, err := ioutil.ReadAll(resp.Body)
-
-		if err != nil {
-			return false, nil
-		}
-
-		return true, b
+	if len(reqs) >= 2*len(cluster.Machines) {
+		return newError(ErrCodeEtcdNotReachable,
+			"Tried to connect to each peer twice and failed", 0)
 	}
 
-	logger.Warning("bad status code ", resp.StatusCode)
-	return false, nil
+	resp := &resps[len(resps)-1]
+
+	if resp == nil {
+		time.Sleep(time.Millisecond * 200)
+		return nil
+	}
+
+	code := resp.StatusCode
+	if code == http.StatusInternalServerError {
+		time.Sleep(time.Millisecond * 200)
+
+	}
+
+	logger.Warning("bad response status code", code)
+	return nil
 }
 
 func (c *Client) getHttpPath(random bool, s ...string) string {

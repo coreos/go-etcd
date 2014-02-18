@@ -42,6 +42,20 @@ type Client struct {
 	httpClient  *http.Client
 	persistence io.Writer
 	cURLch      chan string
+	// CheckRetry can be used to control the policy for failed requests
+	// and modify the cluster if needed.
+	// The client calls it before sending requests again, and
+	// stops retrying if CheckRetry returns some error. The cases that
+	// this function needs to handle include no response and unexpected
+	// http status code of response.
+	// If CheckRetry is nil, client will call the default one
+	// `DefaultCheckRetry`.
+	// Argument cluster is the etcd.Cluster object that these requests have been made on.
+	// Argument reqs is all of the http.Requests that have been made so far.
+	// Argument resps is all of the http.Responses from these requests.
+	// Argument err is the reason of the failure.
+	CheckRetry func(cluster *Cluster, reqs []http.Request,
+		resps []http.Response, err error) error
 }
 
 // NewClient create a basic client that is configured to be used
