@@ -8,11 +8,28 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync"
 	"time"
 )
 
 // get issues a GET request
 func (c *Client) get(key string, options options) (*RawResponse, error) {
+	respChan, _, errChan, err := c.asyncGet(key, options)
+
+	if err != nil {
+		return nil, err
+	}
+
+	select {
+	case val := <-respChan:
+		return val, nil
+	case err := <-errChan:
+		return nil, err
+	}
+}
+
+// asyncGet issues an async GET request -- these can be cancelled by closing the stop channel
+func (c *Client) asyncGet(key string, options options) (<-chan *RawResponse, chan<- bool, <-chan error, error) {
 	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
 	p := keyToPath(key)
 
@@ -24,17 +41,12 @@ func (c *Client) get(key string, options options) (*RawResponse, error) {
 
 	str, err := options.toParameters(VALID_GET_OPTIONS)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	p += str
 
-	resp, err := c.sendRequest("GET", p, nil)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+	respChan, stopChan, errChan := c.asyncSendRequest("GET", p, nil)
+	return respChan, stopChan, errChan, nil
 }
 
 // put issues a PUT request
@@ -96,89 +108,166 @@ func (c *Client) delete(key string, options options) (*RawResponse, error) {
 // sendRequest sends a HTTP request and returns a Response as defined by etcd
 func (c *Client) sendRequest(method string, relativePath string,
 	values url.Values) (*RawResponse, error) {
+	resps, _, errs := c.asyncSendRequest(method, relativePath, values)
+
+	select {
+	case err := <-errs:
+		return nil, err
+	case resp := <-resps:
+		return resp, nil
+	}
+}
+
+func (c *Client) asyncSendRequest(method string, relativePath string,
+	values url.Values) (<-chan *RawResponse, chan<- bool, <-chan error) {
+	respChan := make(chan *RawResponse)
+	stopChan := make(chan bool, 1)
+	errChan := make(chan error)
+
+	innerRespChan := make(chan *RawResponse)
+	innerErrChan := make(chan error)
+	lock := &sync.Mutex{}
+	var stopped bool
 
 	var req *http.Request
-	var resp *http.Response
 	var httpPath string
-	var err error
-	var b []byte
 
-	trial := 0
+	if method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
+		// If it's a GET and consistency level is set to WEAK,
+		// then use a random machine.
+		httpPath = c.getHttpPath(true, relativePath)
+	} else {
+		// Else use the leader.
+		httpPath = c.getHttpPath(false, relativePath)
+	}
 
-	// if we connect to a follower, we will retry until we found a leader
-	for {
-		trial++
-		logger.Debug("begin trail ", trial)
-		if trial > 2*len(c.cluster.Machines) {
-			return nil, newError(ErrCodeEtcdNotReachable,
-				"Tried to connect to each peer twice and failed", 0)
-		}
+	if values == nil {
+		req, _ = http.NewRequest(method, httpPath, nil)
+	} else {
+		req, _ = http.NewRequest(method, httpPath,
+			strings.NewReader(values.Encode()))
 
-		if method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
-			// If it's a GET and consistency level is set to WEAK,
-			// then use a random machine.
-			httpPath = c.getHttpPath(true, relativePath)
-		} else {
-			// Else use the leader.
-			httpPath = c.getHttpPath(false, relativePath)
-		}
+		req.Header.Set("Content-Type",
+			"application/x-www-form-urlencoded; param=value")
+	}
 
-		// Return a cURL command if curlChan is set
-		if c.cURLch != nil {
-			command := fmt.Sprintf("curl -X %s %s", method, httpPath)
-			for key, value := range values {
-				command += fmt.Sprintf(" -d %s=%s", key, value[0])
+	go func() {
+		var resp *http.Response
+		var err error
+		var b []byte
+
+		trial := 0
+
+		// if we connect to a follower, we will retry until we found a leader
+		for {
+			trial++
+
+			logger.Debug("begin trail ", trial)
+			if trial > 2*len(c.cluster.Machines) {
+				innerErrChan <- newError(ErrCodeEtcdNotReachable,
+					"Tried to connect to each peer twice and failed", 0)
+
+				return
 			}
-			c.sendCURL(command)
-		}
 
-		logger.Debug("send.request.to ", httpPath, " | method ", method)
+			// Return a cURL command if curlChan is set
+			if c.cURLch != nil {
+				command := fmt.Sprintf("curl -X %s %s", method, req.URL)
+				for key, value := range values {
+					command += fmt.Sprintf(" -d %s=%s", key, value[0])
+				}
+				c.sendCURL(command)
+			}
 
-		if values == nil {
-			req, _ = http.NewRequest(method, httpPath, nil)
-		} else {
-			req, _ = http.NewRequest(method, httpPath,
-				strings.NewReader(values.Encode()))
+			logger.Debug("send.request.to ", req.URL, " | method ", method)
 
-			req.Header.Set("Content-Type",
-				"application/x-www-form-urlencoded; param=value")
-		}
+			// network error, change a machine!
+			if resp, err = c.httpClient.Do(req); err != nil {
+				lock.Lock()
+				didStop := stopped
+				lock.Unlock()
+				if didStop {
+					if err == nil {
+						resp.Body.Close()
+					}
+					return
+				}
 
-		// network error, change a machine!
-		if resp, err = c.httpClient.Do(req); err != nil {
-			logger.Debug("network error: ", err.Error())
-			c.cluster.switchLeader(trial % len(c.cluster.Machines))
-			time.Sleep(time.Millisecond * 200)
-			continue
-		}
+				logger.Debug("network error: ", err.Error())
+				c.cluster.switchLeader(trial % len(c.cluster.Machines))
+				time.Sleep(time.Millisecond * 200)
 
-		if resp != nil {
-			logger.Debug("recv.response.from ", httpPath)
+				c.switchURL(req, method, relativePath)
 
-			var ok bool
-			ok, b = c.handleResp(resp)
-
-			if !ok {
 				continue
 			}
 
-			logger.Debug("recv.success.", httpPath)
-			break
+			if resp != nil {
+				logger.Debug("recv.response.from ", req.URL)
+
+				var ok bool
+				ok, b = c.handleResp(resp)
+
+				if !ok {
+					c.switchURL(req, method, relativePath)
+					continue
+				}
+
+				logger.Debug("recv.success.", req.URL)
+
+				break
+			}
+
+			// should not reach here
+			// err and resp should not be nil at the same time
+			logger.Debug("error.from ", req.URL)
+
+			innerErrChan <- err
+
+			return
 		}
 
-		// should not reach here
-		// err and resp should not be nil at the same time
-		logger.Debug("error.from ", httpPath)
-		return nil, err
+		innerRespChan <- &RawResponse{
+			StatusCode: resp.StatusCode,
+			Body:       b,
+			Header:     resp.Header,
+		}
+	}()
+
+	go func() {
+		select {
+		case resp := <-innerRespChan:
+			respChan <- resp
+		case err := <-innerErrChan:
+			errChan <- err
+		case <-stopChan:
+			lock.Lock()
+			stopped = true
+			lock.Unlock()
+			c.httpClient.Transport.(*http.Transport).CancelRequest(req)
+		}
+		close(respChan)
+		close(errChan)
+	}()
+
+	return respChan, stopChan, errChan
+}
+
+func (c *Client) switchURL(req *http.Request, method string, relativePath string) {
+	httpPath := ""
+
+	if method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
+		// If it's a GET and consistency level is set to WEAK,
+		// then use a random machine.
+		httpPath = c.getHttpPath(true, relativePath)
+	} else {
+		// Else use the leader.
+		httpPath = c.getHttpPath(false, relativePath)
 	}
 
-	r := &RawResponse{
-		StatusCode: resp.StatusCode,
-		Body:       b,
-		Header:     resp.Header,
-	}
+	url, _ := url.Parse(httpPath)
 
-	return r, nil
+	req.URL = url
 }
 
 // handleResp handles the responses from the etcd server
