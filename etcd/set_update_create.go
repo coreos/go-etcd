@@ -62,6 +62,18 @@ func (c *Client) Create(key string, value string, ttl uint64) (*Response, error)
 	return raw.Unmarshal()
 }
 
+// CreateInOrder creates a file with a key that's guaranteed to be higher than other
+// keys in the given directory. It is useful for creating queues.
+func (c *Client) CreateInOrder(dir string, value string, ttl uint64) (*Response, error) {
+	raw, err := c.RawCreateInOrder(dir, value, ttl)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return raw.Unmarshal()
+}
+
 // Update updates the given key to the given value.  It succeeds only if the
 // given key already exists.
 func (c *Client) Update(key string, value string, ttl uint64) (*Response, error) {
@@ -118,4 +130,8 @@ func (c *Client) RawCreate(key string, value string, ttl uint64) (*RawResponse, 
 	}
 
 	return c.put(key, value, ttl, ops)
+}
+
+func (c *Client) RawCreateInOrder(dir string, value string, ttl uint64) (*RawResponse, error) {
+	return c.post(dir, value, ttl)
 }
