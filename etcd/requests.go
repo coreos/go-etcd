@@ -148,11 +148,11 @@ func (c *Client) sendRequest(method string, relativePath string,
 
 		resp, err = c.httpClient.Do(req)
 		reqs = append(reqs, *req)
-		resps = append(resps, *resp)
 
 		// network error, change a machine!
 		if err != nil {
 			logger.Debug("network error:", err.Error())
+			resps = append(resps, http.Response{})
 			if checkErr := checkRetry(c.cluster, reqs, resps, err); checkErr != nil {
 				return nil, checkErr
 			}
@@ -162,6 +162,7 @@ func (c *Client) sendRequest(method string, relativePath string,
 		}
 
 		// if there is no error, it should receive response
+		resps = append(resps, *resp)
 		defer resp.Body.Close()
 		logger.Debug("recv.response.from", httpPath)
 
