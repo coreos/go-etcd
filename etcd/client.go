@@ -333,7 +333,26 @@ func (c *Client) createHttpPath(serverName string, _path string) string {
 
 // Dial with timeout.
 func dialTimeout(network, addr string) (net.Conn, error) {
-	return net.DialTimeout(network, addr, time.Second)
+	tcpAddr, err := net.ResolveTCPAddr(network, addr)
+	if err != nil {
+		return nil, err
+	}
+
+	tcpConn, err := net.DialTCP(network, nil, tcpAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	// Keep TCP alive to check whether or not the remote machine is down
+	if err = tcpConn.SetKeepAlive(true); err != nil {
+		return nil, err
+	}
+
+	if err = tcpConn.SetKeepAlivePeriod(time.Second); err != nil {
+		return nil, err
+	}
+
+	return tcpConn, nil
 }
 
 func (c *Client) OpenCURL() {
