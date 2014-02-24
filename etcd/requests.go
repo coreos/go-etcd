@@ -12,8 +12,14 @@ import (
 	"time"
 )
 
-// get issues a GET request
-func (c *Client) get(key string, options options) (*RawResponse, error) {
+// Errors introduced by handling requests
+var (
+	ErrRequestCancelled = errors.New("sending request is cancelled")
+)
+
+// getCancelable issues a cancelable GET request
+func (c *Client) getCancelable(key string, options options,
+	cancel <-chan bool) (*RawResponse, error) {
 	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
 	p := keyToPath(key)
 
@@ -29,13 +35,18 @@ func (c *Client) get(key string, options options) (*RawResponse, error) {
 	}
 	p += str
 
-	resp, err := c.sendRequest("GET", p, nil)
+	resp, err := c.sendRequest("GET", p, nil, cancel)
 
 	if err != nil {
 		return nil, err
 	}
 
 	return resp, nil
+}
+
+// get issues a GET request
+func (c *Client) get(key string, options options) (*RawResponse, error) {
+	return c.getCancelable(key, options, nil)
 }
 
 // put issues a PUT request
@@ -51,7 +62,7 @@ func (c *Client) put(key string, value string, ttl uint64,
 	}
 	p += str
 
-	resp, err := c.sendRequest("PUT", p, buildValues(value, ttl))
+	resp, err := c.sendRequest("PUT", p, buildValues(value, ttl), nil)
 
 	if err != nil {
 		return nil, err
@@ -65,7 +76,7 @@ func (c *Client) post(key string, value string, ttl uint64) (*RawResponse, error
 	logger.Debugf("post %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := keyToPath(key)
 
-	resp, err := c.sendRequest("POST", p, buildValues(value, ttl))
+	resp, err := c.sendRequest("POST", p, buildValues(value, ttl), nil)
 
 	if err != nil {
 		return nil, err
@@ -85,7 +96,7 @@ func (c *Client) delete(key string, options options) (*RawResponse, error) {
 	}
 	p += str
 
-	resp, err := c.sendRequest("DELETE", p, nil)
+	resp, err := c.sendRequest("DELETE", p, nil, nil)
 
 	if err != nil {
 		return nil, err
@@ -96,7 +107,7 @@ func (c *Client) delete(key string, options options) (*RawResponse, error) {
 
 // sendRequest sends a HTTP request and returns a Response as defined by etcd
 func (c *Client) sendRequest(method string, relativePath string,
-	values url.Values) (*RawResponse, error) {
+	values url.Values, cancel <-chan bool) (*RawResponse, error) {
 
 	var req *http.Request
 	var resp *http.Response
@@ -112,8 +123,41 @@ func (c *Client) sendRequest(method string, relativePath string,
 		checkRetry = DefaultCheckRetry
 	}
 
+	cancelled := false
+
+	if cancel != nil {
+		cancelRoutine := make(chan bool)
+		defer close(cancelRoutine)
+
+		go func() {
+			select {
+			case <-cancel:
+				cancelled = true
+				logger.Debug("send.request is cancelled")
+				c.httpClient.Transport.(*http.Transport).CancelRequest(req)
+			case <-cancelRoutine:
+				return
+			}
+
+			// Repeat canceling request until this thread is stopped
+			// because we have no idea about whether it succeeds.
+			for {
+				select {
+				case <-time.After(100*time.Millisecond):
+					c.httpClient.Transport.(*http.Transport).CancelRequest(req)
+				case <-cancelRoutine:
+					return
+				}
+			}
+		}()
+	}
+
 	// if we connect to a follower, we will retry until we find a leader
 	for attempt := 0; ; attempt++ {
+		if cancelled {
+			return nil, ErrRequestCancelled
+		}
+
 		logger.Debug("begin attempt", attempt, "for", relativePath)
 
 		if method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
@@ -147,6 +191,11 @@ func (c *Client) sendRequest(method string, relativePath string,
 		}
 
 		resp, err = c.httpClient.Do(req)
+		// If the request was cancelled, return ErrRequestCancelled directly
+		if cancelled {
+			return nil, ErrRequestCancelled
+		}
+
 		reqs = append(reqs, *req)
 
 		// network error, change a machine!
