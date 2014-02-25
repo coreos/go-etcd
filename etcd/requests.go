@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -143,7 +144,8 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 		checkRetry = DefaultCheckRetry
 	}
 
-	cancelled := false
+	cancelled := make(chan bool, 1)
+	reqLock := new(sync.Mutex)
 
 	if rr.Cancel != nil {
 		cancelRoutine := make(chan bool)
@@ -152,9 +154,8 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 		go func() {
 			select {
 			case <-rr.Cancel:
-				cancelled = true
+				cancelled <-true
 				logger.Debug("send.request is cancelled")
-				c.httpClient.Transport.(*http.Transport).CancelRequest(req)
 			case <-cancelRoutine:
 				return
 			}
@@ -162,9 +163,12 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 			// Repeat canceling request until this thread is stopped
 			// because we have no idea about whether it succeeds.
 			for {
+				reqLock.Lock()
+				c.httpClient.Transport.(*http.Transport).CancelRequest(req)
+				reqLock.Unlock()
+
 				select {
 				case <-time.After(100 * time.Millisecond):
-					c.httpClient.Transport.(*http.Transport).CancelRequest(req)
 				case <-cancelRoutine:
 					return
 				}
@@ -174,8 +178,10 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 
 	// if we connect to a follower, we will retry until we find a leader
 	for attempt := 0; ; attempt++ {
-		if cancelled {
+		select {
+		case <-cancelled:
 			return nil, ErrRequestCancelled
+		default:
 		}
 
 		logger.Debug("begin attempt", attempt, "for", rr.RelativePath)
@@ -200,6 +206,7 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 
 		logger.Debug("send.request.to ", httpPath, " | method ", rr.Method)
 
+		reqLock.Lock()
 		if rr.Values == nil {
 			req, _ = http.NewRequest(rr.Method, httpPath, nil)
 		} else {
@@ -209,11 +216,14 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 			req.Header.Set("Content-Type",
 				"application/x-www-form-urlencoded; param=value")
 		}
+		reqLock.Unlock()
 
 		resp, err = c.httpClient.Do(req)
 		// If the request was cancelled, return ErrRequestCancelled directly
-		if cancelled {
+		select {
+		case <-cancelled:
 			return nil, ErrRequestCancelled
+		default:
 		}
 
 		reqs = append(reqs, *req)
