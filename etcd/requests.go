@@ -17,8 +17,25 @@ var (
 	ErrRequestCancelled = errors.New("sending request is cancelled")
 )
 
+type RawRequest struct {
+	Method       string
+	RelativePath string
+	Values       url.Values
+	Cancel       <-chan bool
+}
+
+// NewRawRequest returns a new RawRequest
+func NewRawRequest(method, relativePath string, values url.Values, cancel <-chan bool) *RawRequest {
+	return &RawRequest{
+		Method:       method,
+		RelativePath: relativePath,
+		Values:       values,
+		Cancel:       cancel,
+	}
+}
+
 // getCancelable issues a cancelable GET request
-func (c *Client) getCancelable(key string, options options,
+func (c *Client) getCancelable(key string, options Options,
 	cancel <-chan bool) (*RawResponse, error) {
 	logger.Debugf("get %s [%s]", key, c.cluster.Leader)
 	p := keyToPath(key)
@@ -35,7 +52,8 @@ func (c *Client) getCancelable(key string, options options,
 	}
 	p += str
 
-	resp, err := c.sendRequest("GET", p, nil, cancel)
+	req := NewRawRequest("GET", p, nil, cancel)
+	resp, err := c.SendRequest(req)
 
 	if err != nil {
 		return nil, err
@@ -45,13 +63,13 @@ func (c *Client) getCancelable(key string, options options,
 }
 
 // get issues a GET request
-func (c *Client) get(key string, options options) (*RawResponse, error) {
+func (c *Client) get(key string, options Options) (*RawResponse, error) {
 	return c.getCancelable(key, options, nil)
 }
 
 // put issues a PUT request
 func (c *Client) put(key string, value string, ttl uint64,
-	options options) (*RawResponse, error) {
+	options Options) (*RawResponse, error) {
 
 	logger.Debugf("put %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := keyToPath(key)
@@ -62,7 +80,8 @@ func (c *Client) put(key string, value string, ttl uint64,
 	}
 	p += str
 
-	resp, err := c.sendRequest("PUT", p, buildValues(value, ttl), nil)
+	req := NewRawRequest("PUT", p, buildValues(value, ttl), nil)
+	resp, err := c.SendRequest(req)
 
 	if err != nil {
 		return nil, err
@@ -76,7 +95,8 @@ func (c *Client) post(key string, value string, ttl uint64) (*RawResponse, error
 	logger.Debugf("post %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := keyToPath(key)
 
-	resp, err := c.sendRequest("POST", p, buildValues(value, ttl), nil)
+	req := NewRawRequest("POST", p, buildValues(value, ttl), nil)
+	resp, err := c.SendRequest(req)
 
 	if err != nil {
 		return nil, err
@@ -86,7 +106,7 @@ func (c *Client) post(key string, value string, ttl uint64) (*RawResponse, error
 }
 
 // delete issues a DELETE request
-func (c *Client) delete(key string, options options) (*RawResponse, error) {
+func (c *Client) delete(key string, options Options) (*RawResponse, error) {
 	logger.Debugf("delete %s [%s]", key, c.cluster.Leader)
 	p := keyToPath(key)
 
@@ -96,7 +116,8 @@ func (c *Client) delete(key string, options options) (*RawResponse, error) {
 	}
 	p += str
 
-	resp, err := c.sendRequest("DELETE", p, nil, nil)
+	req := NewRawRequest("DELETE", p, nil, nil)
+	resp, err := c.SendRequest(req)
 
 	if err != nil {
 		return nil, err
@@ -105,9 +126,8 @@ func (c *Client) delete(key string, options options) (*RawResponse, error) {
 	return resp, nil
 }
 
-// sendRequest sends a HTTP request and returns a Response as defined by etcd
-func (c *Client) sendRequest(method string, relativePath string,
-	values url.Values, cancel <-chan bool) (*RawResponse, error) {
+// SendRequest sends a HTTP request and returns a Response as defined by etcd
+func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 
 	var req *http.Request
 	var resp *http.Response
@@ -125,13 +145,13 @@ func (c *Client) sendRequest(method string, relativePath string,
 
 	cancelled := false
 
-	if cancel != nil {
+	if rr.Cancel != nil {
 		cancelRoutine := make(chan bool)
 		defer close(cancelRoutine)
 
 		go func() {
 			select {
-			case <-cancel:
+			case <-rr.Cancel:
 				cancelled = true
 				logger.Debug("send.request is cancelled")
 				c.httpClient.Transport.(*http.Transport).CancelRequest(req)
@@ -143,7 +163,7 @@ func (c *Client) sendRequest(method string, relativePath string,
 			// because we have no idea about whether it succeeds.
 			for {
 				select {
-				case <-time.After(100*time.Millisecond):
+				case <-time.After(100 * time.Millisecond):
 					c.httpClient.Transport.(*http.Transport).CancelRequest(req)
 				case <-cancelRoutine:
 					return
@@ -158,33 +178,33 @@ func (c *Client) sendRequest(method string, relativePath string,
 			return nil, ErrRequestCancelled
 		}
 
-		logger.Debug("begin attempt", attempt, "for", relativePath)
+		logger.Debug("begin attempt", attempt, "for", rr.RelativePath)
 
-		if method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
+		if rr.Method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
 			// If it's a GET and consistency level is set to WEAK,
 			// then use a random machine.
-			httpPath = c.getHttpPath(true, relativePath)
+			httpPath = c.getHttpPath(true, rr.RelativePath)
 		} else {
 			// Else use the leader.
-			httpPath = c.getHttpPath(false, relativePath)
+			httpPath = c.getHttpPath(false, rr.RelativePath)
 		}
 
 		// Return a cURL command if curlChan is set
 		if c.cURLch != nil {
-			command := fmt.Sprintf("curl -X %s %s", method, httpPath)
-			for key, value := range values {
+			command := fmt.Sprintf("curl -X %s %s", rr.Method, httpPath)
+			for key, value := range rr.Values {
 				command += fmt.Sprintf(" -d %s=%s", key, value[0])
 			}
 			c.sendCURL(command)
 		}
 
-		logger.Debug("send.request.to", httpPath, "| method", method)
+		logger.Debug("send.request.to ", httpPath, " | method ", rr.Method)
 
-		if values == nil {
-			req, _ = http.NewRequest(method, httpPath, nil)
+		if rr.Values == nil {
+			req, _ = http.NewRequest(rr.Method, httpPath, nil)
 		} else {
-			req, _ = http.NewRequest(method, httpPath,
-				strings.NewReader(values.Encode()))
+			req, _ = http.NewRequest(rr.Method, httpPath,
+				strings.NewReader(rr.Values.Encode()))
 
 			req.Header.Set("Content-Type",
 				"application/x-www-form-urlencoded; param=value")
