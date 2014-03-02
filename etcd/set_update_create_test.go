@@ -100,11 +100,11 @@ func TestCreate(t *testing.T) {
 
 func TestCreateInOrder(t *testing.T) {
 	c := NewClient(nil)
+	dir := "/queue"
 	defer func() {
-		c.DeleteDir("queue")
+		c.DeleteDir(dir)
 	}()
 
-	dir := "/queue"
 	var firstKey, secondKey string
 
 	resp, err := c.CreateInOrder(dir, "1", 5)
