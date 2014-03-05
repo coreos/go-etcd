@@ -293,7 +293,7 @@ func DefaultCheckRetry(cluster *Cluster, reqs []http.Request,
 
 	if len(reqs) >= 2*len(cluster.Machines) {
 		return newError(ErrCodeEtcdNotReachable,
-			"Tried to connect to each peer twice and failed", 0)
+			fmt.Sprint("Tried to connect to each peer twice and failed. Last error is", err), 0)
 	}
 
 	resp := &resps[len(resps)-1]
