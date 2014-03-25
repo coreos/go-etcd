@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"time"
 )
 
@@ -66,6 +65,10 @@ func NewClient(machines []string) *Client {
 		Timeout: time.Second,
 		// default consistency level is STRONG
 		Consistency: STRONG_CONSISTENCY,
+	}
+
+	for i, m := range machines {
+		machines[i] = createHttpPath(m)
 	}
 
 	client := &Client{
@@ -271,7 +274,18 @@ func (c *Client) AddRootCA(caCert string) error {
 
 // SetCluster updates cluster information using the given machine list.
 func (c *Client) SetCluster(machines []string) bool {
-	success := c.internalSyncCluster(machines)
+	oldCluster := c.cluster
+
+	for i, m := range machines {
+		machines[i] = createHttpPath(m)
+	}
+	c.cluster = NewCluster(machines)
+
+	success := c.SyncCluster()
+
+	if !success {
+		c.cluster = oldCluster
+	}
 	return success
 }
 
@@ -281,49 +295,32 @@ func (c *Client) GetCluster() []string {
 
 // SyncCluster updates the cluster information using the internal machine list.
 func (c *Client) SyncCluster() bool {
-	return c.internalSyncCluster(c.cluster.Machines)
-}
-
-// internalSyncCluster syncs cluster information using the given machine list.
-func (c *Client) internalSyncCluster(machines []string) bool {
-	for _, machine := range machines {
-		httpPath := c.createHttpPath(machine, path.Join(version, "machines"))
-		resp, err := c.httpClient.Get(httpPath)
-		if err != nil {
-			// try another machine in the cluster
-			continue
-		} else {
-			b, err := ioutil.ReadAll(resp.Body)
-			resp.Body.Close()
-			if err != nil {
-				// try another machine in the cluster
-				continue
-			}
-
-			// update Machines List
-			c.cluster.updateFromStr(string(b))
-
-			// update leader
-			// the first one in the machine list is the leader
-			c.cluster.switchLeader(0)
-
-			logger.Debug("sync.machines ", c.cluster.Machines)
-			c.saveConfig()
-			return true
-		}
+	req := NewRawRequest("GET", "machines", nil, nil)
+	resp, err := c.SendRequest(req)
+	if err != nil {
+		return false
 	}
-	return false
+
+	// update Machines List
+	c.cluster.updateFromStr(string(resp.Body))
+
+	// update leader
+	// the first one in the machine list is the leader
+	c.cluster.switchLeader(0)
+
+	logger.Debug("sync.machines ", c.cluster.Machines)
+	c.saveConfig()
+
+	return true
 }
 
 // createHttpPath creates a complete HTTP URL.
 // serverName should contain both the host name and a port number, if any.
-func (c *Client) createHttpPath(serverName string, _path string) string {
+func createHttpPath(serverName string) string {
 	u, err := url.Parse(serverName)
 	if err != nil {
 		panic(err)
 	}
-
-	u.Path = path.Join(u.Path, _path)
 
 	if u.Scheme == "" {
 		u.Scheme = "http"
