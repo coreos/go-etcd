@@ -300,6 +300,9 @@ func (c *Client) SyncCluster() bool {
 	if err != nil {
 		return false
 	}
+	if resp.StatusCode != http.StatusOK {
+		return false
+	}
 
 	// update Machines List
 	c.cluster.updateFromStr(string(resp.Body))
