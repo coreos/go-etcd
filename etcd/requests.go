@@ -54,7 +54,7 @@ func (c *Client) getCancelable(key string, options Options,
 	p += str
 
 	req := NewRawRequest("GET", p, nil, cancel)
-	resp, err := c.SendRequest(req)
+	resp, err := c.SendRequest(req, MODULE_DEFAULT)
 
 	if err != nil {
 		return nil, err
@@ -82,7 +82,7 @@ func (c *Client) put(key string, value string, ttl uint64,
 	p += str
 
 	req := NewRawRequest("PUT", p, buildValues(value, ttl), nil)
-	resp, err := c.SendRequest(req)
+	resp, err := c.SendRequest(req, MODULE_DEFAULT)
 
 	if err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func (c *Client) post(key string, value string, ttl uint64) (*RawResponse, error
 	p := keyToPath(key)
 
 	req := NewRawRequest("POST", p, buildValues(value, ttl), nil)
-	resp, err := c.SendRequest(req)
+	resp, err := c.SendRequest(req, MODULE_DEFAULT)
 
 	if err != nil {
 		return nil, err
@@ -118,7 +118,7 @@ func (c *Client) delete(key string, options Options) (*RawResponse, error) {
 	p += str
 
 	req := NewRawRequest("DELETE", p, nil, nil)
-	resp, err := c.SendRequest(req)
+	resp, err := c.SendRequest(req, MODULE_DEFAULT)
 
 	if err != nil {
 		return nil, err
@@ -128,7 +128,7 @@ func (c *Client) delete(key string, options Options) (*RawResponse, error) {
 }
 
 // SendRequest sends a HTTP request and returns a Response as defined by etcd
-func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
+func (c *Client) SendRequest(rr *RawRequest, module int) (*RawResponse, error) {
 
 	var req *http.Request
 	var resp *http.Response
@@ -154,7 +154,7 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 		go func() {
 			select {
 			case <-rr.Cancel:
-				cancelled <-true
+				cancelled <- true
 				logger.Debug("send.request is cancelled")
 			case <-cancelRoutine:
 				return
@@ -189,10 +189,10 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 		if rr.Method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
 			// If it's a GET and consistency level is set to WEAK,
 			// then use a random machine.
-			httpPath = c.getHttpPath(true, rr.RelativePath)
+			httpPath = c.getHttpPath(true, module, rr.RelativePath)
 		} else {
 			// Else use the leader.
-			httpPath = c.getHttpPath(false, rr.RelativePath)
+			httpPath = c.getHttpPath(false, module, rr.RelativePath)
 		}
 
 		// Return a cURL command if curlChan is set
@@ -313,7 +313,7 @@ func DefaultCheckRetry(cluster *Cluster, reqs []http.Request,
 	return nil
 }
 
-func (c *Client) getHttpPath(random bool, s ...string) string {
+func (c *Client) getHttpPath(random bool, module int, s ...string) string {
 	var machine string
 	if random {
 		machine = c.cluster.Machines[rand.Intn(len(c.cluster.Machines))]
@@ -321,7 +321,15 @@ func (c *Client) getHttpPath(random bool, s ...string) string {
 		machine = c.cluster.Leader
 	}
 
-	fullPath := machine + "/" + version
+	var fullPath string
+	switch module {
+	case MODULE_LOCK:
+		fullPath = machine + "/mod/" + version + "/lock"
+	case MODULE_DEFAULT:
+		fullPath = machine + "/" + version
+	default:
+		panic(fmt.Sprintf("invalid module %d ", module))
+	}
 	for _, seg := range s {
 		fullPath = fullPath + "/" + seg
 	}

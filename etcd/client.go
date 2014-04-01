@@ -28,6 +28,11 @@ const (
 	defaultBufferSize = 10
 )
 
+const (
+	MODULE_DEFAULT = iota
+	MODULE_LOCK
+)
+
 type Config struct {
 	CertFile    string        `json:"certFile"`
 	KeyFile     string        `json:"keyFile"`
