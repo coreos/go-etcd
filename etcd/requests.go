@@ -18,19 +18,29 @@ var (
 	ErrRequestCancelled = errors.New("sending request is cancelled")
 )
 
+type ModuleT int
+
+const (
+	ModuleDefault ModuleT = iota
+	ModuleLock
+	ModuleLeader
+)
+
 type RawRequest struct {
 	Method       string
 	RelativePath string
 	Values       url.Values
+	Module       ModuleT
 	Cancel       <-chan bool
 }
 
 // NewRawRequest returns a new RawRequest
-func NewRawRequest(method, relativePath string, values url.Values, cancel <-chan bool) *RawRequest {
+func NewRawRequest(method, relativePath string, values url.Values, module ModuleT, cancel <-chan bool) *RawRequest {
 	return &RawRequest{
 		Method:       method,
 		RelativePath: relativePath,
 		Values:       values,
+		Module:       module,
 		Cancel:       cancel,
 	}
 }
@@ -53,8 +63,8 @@ func (c *Client) getCancelable(key string, options Options,
 	}
 	p += str
 
-	req := NewRawRequest("GET", p, nil, cancel)
-	resp, err := c.SendRequest(req, MODULE_DEFAULT)
+	req := NewRawRequest("GET", p, nil, ModuleDefault, cancel)
+	resp, err := c.SendRequest(req)
 
 	if err != nil {
 		return nil, err
@@ -81,8 +91,8 @@ func (c *Client) put(key string, value string, ttl uint64,
 	}
 	p += str
 
-	req := NewRawRequest("PUT", p, buildValues(value, ttl), nil)
-	resp, err := c.SendRequest(req, MODULE_DEFAULT)
+	req := NewRawRequest("PUT", p, buildValues(value, ttl), ModuleDefault, nil)
+	resp, err := c.SendRequest(req)
 
 	if err != nil {
 		return nil, err
@@ -96,8 +106,8 @@ func (c *Client) post(key string, value string, ttl uint64) (*RawResponse, error
 	logger.Debugf("post %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := keyToPath(key)
 
-	req := NewRawRequest("POST", p, buildValues(value, ttl), nil)
-	resp, err := c.SendRequest(req, MODULE_DEFAULT)
+	req := NewRawRequest("POST", p, buildValues(value, ttl), ModuleDefault, nil)
+	resp, err := c.SendRequest(req)
 
 	if err != nil {
 		return nil, err
@@ -117,8 +127,8 @@ func (c *Client) delete(key string, options Options) (*RawResponse, error) {
 	}
 	p += str
 
-	req := NewRawRequest("DELETE", p, nil, nil)
-	resp, err := c.SendRequest(req, MODULE_DEFAULT)
+	req := NewRawRequest("DELETE", p, nil, ModuleDefault, nil)
+	resp, err := c.SendRequest(req)
 
 	if err != nil {
 		return nil, err
@@ -128,7 +138,7 @@ func (c *Client) delete(key string, options Options) (*RawResponse, error) {
 }
 
 // SendRequest sends a HTTP request and returns a Response as defined by etcd
-func (c *Client) SendRequest(rr *RawRequest, module int) (*RawResponse, error) {
+func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 
 	var req *http.Request
 	var resp *http.Response
@@ -189,10 +199,10 @@ func (c *Client) SendRequest(rr *RawRequest, module int) (*RawResponse, error) {
 		if rr.Method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
 			// If it's a GET and consistency level is set to WEAK,
 			// then use a random machine.
-			httpPath = c.getHttpPath(true, module, rr.RelativePath)
+			httpPath = c.getHttpPath(true, rr.Module, rr.RelativePath)
 		} else {
 			// Else use the leader.
-			httpPath = c.getHttpPath(false, module, rr.RelativePath)
+			httpPath = c.getHttpPath(false, rr.Module, rr.RelativePath)
 		}
 
 		// Return a cURL command if curlChan is set
@@ -313,7 +323,7 @@ func DefaultCheckRetry(cluster *Cluster, reqs []http.Request,
 	return nil
 }
 
-func (c *Client) getHttpPath(random bool, module int, s ...string) string {
+func (c *Client) getHttpPath(random bool, module ModuleT, s ...string) string {
 	var machine string
 	if random {
 		machine = c.cluster.Machines[rand.Intn(len(c.cluster.Machines))]
@@ -323,9 +333,9 @@ func (c *Client) getHttpPath(random bool, module int, s ...string) string {
 
 	var fullPath string
 	switch module {
-	case MODULE_LOCK:
+	case ModuleLock:
 		fullPath = machine + "/mod/" + version + "/lock"
-	case MODULE_DEFAULT:
+	case ModuleDefault:
 		fullPath = machine + "/" + version
 	default:
 		panic(fmt.Sprintf("invalid module %d ", module))

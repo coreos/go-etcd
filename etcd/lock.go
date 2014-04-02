@@ -18,8 +18,8 @@ func (c *Client) Lock(key, value string, ttl uint64) (lockKey string, err error)
 	logger.Debugf("lock %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 
 	values := buildValues(value, ttl)
-	req := NewRawRequest("POST", key, values, nil)
-	rawResp, err := c.SendRequest(req, MODULE_LOCK)
+	req := NewRawRequest("POST", key, values, ModuleLock, nil)
+	rawResp, err := c.SendRequest(req)
 
 	if err != nil {
 		return "", err
@@ -38,8 +38,8 @@ func (c *Client) LockRenew(key, value string, ttl uint64, lockKey string) (err e
 
 	values := buildValues(value, ttl)
 	values.Set("index", lockKey)
-	req := NewRawRequest("PUT", key, values, nil)
-	_, err = c.SendRequest(req, MODULE_LOCK)
+	req := NewRawRequest("PUT", key, values, ModuleLock, nil)
+	_, err = c.SendRequest(req)
 	return err
 }
 
@@ -53,7 +53,7 @@ func (c *Client) LockRemove(key, value string, lockKey string) (err error) {
 
 	values := buildValues(value, 0)
 	values.Set("index", lockKey)
-	req := NewRawRequest("DELETE", key, values, nil)
-	_, err = c.SendRequest(req, MODULE_LOCK)
+	req := NewRawRequest("DELETE", key, values, ModuleLock, nil)
+	_, err = c.SendRequest(req)
 	return err
 }
