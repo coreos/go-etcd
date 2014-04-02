@@ -18,19 +18,29 @@ var (
 	ErrRequestCancelled = errors.New("sending request is cancelled")
 )
 
+type ModuleT int
+
+const (
+	ModuleDefault ModuleT = iota
+	ModuleLock
+	ModuleLeader
+)
+
 type RawRequest struct {
 	Method       string
 	RelativePath string
 	Values       url.Values
+	Module       ModuleT
 	Cancel       <-chan bool
 }
 
 // NewRawRequest returns a new RawRequest
-func NewRawRequest(method, relativePath string, values url.Values, cancel <-chan bool) *RawRequest {
+func NewRawRequest(method, relativePath string, values url.Values, module ModuleT, cancel <-chan bool) *RawRequest {
 	return &RawRequest{
 		Method:       method,
 		RelativePath: relativePath,
 		Values:       values,
+		Module:       module,
 		Cancel:       cancel,
 	}
 }
@@ -53,7 +63,7 @@ func (c *Client) getCancelable(key string, options Options,
 	}
 	p += str
 
-	req := NewRawRequest("GET", p, nil, cancel)
+	req := NewRawRequest("GET", p, nil, ModuleDefault, cancel)
 	resp, err := c.SendRequest(req)
 
 	if err != nil {
@@ -81,7 +91,7 @@ func (c *Client) put(key string, value string, ttl uint64,
 	}
 	p += str
 
-	req := NewRawRequest("PUT", p, buildValues(value, ttl), nil)
+	req := NewRawRequest("PUT", p, buildValues(value, ttl), ModuleDefault, nil)
 	resp, err := c.SendRequest(req)
 
 	if err != nil {
@@ -96,7 +106,7 @@ func (c *Client) post(key string, value string, ttl uint64) (*RawResponse, error
 	logger.Debugf("post %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := keyToPath(key)
 
-	req := NewRawRequest("POST", p, buildValues(value, ttl), nil)
+	req := NewRawRequest("POST", p, buildValues(value, ttl), ModuleDefault, nil)
 	resp, err := c.SendRequest(req)
 
 	if err != nil {
@@ -117,7 +127,7 @@ func (c *Client) delete(key string, options Options) (*RawResponse, error) {
 	}
 	p += str
 
-	req := NewRawRequest("DELETE", p, nil, nil)
+	req := NewRawRequest("DELETE", p, nil, ModuleDefault, nil)
 	resp, err := c.SendRequest(req)
 
 	if err != nil {
@@ -154,7 +164,7 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 		go func() {
 			select {
 			case <-rr.Cancel:
-				cancelled <-true
+				cancelled <- true
 				logger.Debug("send.request is cancelled")
 			case <-cancelRoutine:
 				return
@@ -189,10 +199,10 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 		if rr.Method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
 			// If it's a GET and consistency level is set to WEAK,
 			// then use a random machine.
-			httpPath = c.getHttpPath(true, rr.RelativePath)
+			httpPath = c.getHttpPath(true, rr.Module, rr.RelativePath)
 		} else {
 			// Else use the leader.
-			httpPath = c.getHttpPath(false, rr.RelativePath)
+			httpPath = c.getHttpPath(false, rr.Module, rr.RelativePath)
 		}
 
 		// Return a cURL command if curlChan is set
@@ -313,7 +323,7 @@ func DefaultCheckRetry(cluster *Cluster, reqs []http.Request,
 	return nil
 }
 
-func (c *Client) getHttpPath(random bool, s ...string) string {
+func (c *Client) getHttpPath(random bool, module ModuleT, s ...string) string {
 	var machine string
 	if random {
 		machine = c.cluster.Machines[rand.Intn(len(c.cluster.Machines))]
@@ -321,7 +331,15 @@ func (c *Client) getHttpPath(random bool, s ...string) string {
 		machine = c.cluster.Leader
 	}
 
-	fullPath := machine + "/" + version
+	var fullPath string
+	switch module {
+	case ModuleLock:
+		fullPath = machine + "/mod/" + version + "/lock"
+	case ModuleDefault:
+		fullPath = machine + "/" + version
+	default:
+		panic(fmt.Sprintf("invalid module %d ", module))
+	}
 	for _, seg := range s {
 		fullPath = fullPath + "/" + seg
 	}
