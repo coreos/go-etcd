@@ -16,9 +16,9 @@ func TestLeader(t *testing.T) {
 	c := NewClient(nil)
 
 	process := "orderProcessing"
-	orderProcessing := c.NewLeader(process, "nodeO", 1)
+	orderProcessing := c.NewLeader(process, "nodeO")
 
-	err := orderProcessing.Lock()
+	err := orderProcessing.Lead(1)
 	if err != nil {
 		t.Fatal("unexpected errors locking leader %v, err: %s", orderProcessing, err)
 	}
@@ -35,8 +35,8 @@ func TestLeader(t *testing.T) {
 	secondLeaderChan := make(chan leaderLockResponse)
 	go func() {
 		c := NewClient(nil)
-		orderProcessing2 := c.NewLeader(process, "node2", 1)
-		err := orderProcessing2.Lock()
+		orderProcessing2 := c.NewLeader(process, "node2")
+		err := orderProcessing2.Lead(1)
 		if err != nil {
 			t.Fatal("unexpected error locking leader %v, err:%s", orderProcessing2, err)
 		}

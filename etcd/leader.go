@@ -6,48 +6,40 @@ import (
 
 // Leader is type to manage leaders created with the etcd leader module.
 type Leader struct {
-	c       *Client // go-etcd client
-	key     string  // key of leader
-	name    string  // name of leader
-	ttl     uint64  // time to live of leader
-	lockKey string  // index given to leader instance by etcd
+	c    *Client // go-etcd client
+	key  string  // key of leader
+	name string  // name of leader
 }
 
 // NewLeader creates a Leader object created with the etcd leader module.
-func (c *Client) NewLeader(key, name string, ttl uint64) (l *Leader) {
+func (c *Client) NewLeader(key, name string) (l *Leader) {
 	return &Leader{
 		c:    c,
 		key:  key,
 		name: name,
-		ttl:  ttl,
 	}
 }
 
-// TTL gets the ttl in seconds
-func (l *Leader) TTL() uint64 {
-	return l.ttl
+// Key returns the key for the leader object.
+func (l *Leader) Key() string {
+	return l.key
 }
 
-// SetTTL sets the ttl in seconds
-func (l *Leader) SetTTL(ttl uint64) {
-	l.ttl = ttl
+// Name returns the name for the leader object.
+func (l *Leader) Name() string {
+	return l.name
 }
 
-// Lock attempts to aquire the leader lock. It will block if another client has
-// already locked it.
-func (l *Leader) Lock() (err error) {
+// Lead attempts to aquire the leader lock. It will block if another client has
+// already locked it. Lead can be called again to renew the Leader role.
+func (l *Leader) Lead(ttl uint64) (err error) {
 
-	values := buildValues("", l.ttl)
+	values := buildValues("", ttl)
 	values.Set("name", l.name)
 	req := NewRawModuleRequest("PUT", l.key, values, ModuleLeader, nil)
-	rawResp, err := l.c.SendRequest(req)
+	_, err = l.c.SendRequest(req)
 
-	if err != nil {
-		return err
-	}
-
-	l.lockKey = string(rawResp.Body)
-	return nil
+	return err
 }
 
 // Current retrieves the name for the current leader
