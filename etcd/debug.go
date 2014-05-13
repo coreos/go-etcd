@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"strings"
 )
 
 var logger *etcdLogger
