@@ -231,7 +231,12 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 		reqLock.Unlock()
 
 		resp, err = c.httpClient.Do(req)
-		defer resp.Body.Close()
+		defer func() {
+			if resp != nil {
+				resp.Body.Close()
+			}
+		}()
+
 		// If the request was cancelled, return ErrRequestCancelled directly
 		select {
 		case <-cancelled:
