@@ -180,13 +180,15 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 	sleep := 25 * time.Millisecond
 	maxSleep := time.Second
 	for attempt := 0; ; attempt++ {
-		select {
-		case <-cancelled:
-			return nil, ErrRequestCancelled
-		case <-time.After(sleep):
-			sleep = sleep * 2
-			if sleep > maxSleep {
-				sleep = maxSleep
+		if attempt > 0 {
+			select {
+			case <-cancelled:
+				return nil, ErrRequestCancelled
+			case <-time.After(sleep):
+				sleep = sleep * 2
+				if sleep > maxSleep {
+					sleep = maxSleep
+				}
 			}
 		}
 
@@ -229,6 +231,7 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 		reqLock.Unlock()
 
 		resp, err = c.httpClient.Do(req)
+		defer resp.Body.Close()
 		// If the request was cancelled, return ErrRequestCancelled directly
 		select {
 		case <-cancelled:
@@ -274,6 +277,7 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 				c.cluster.updateLeaderFromURL(u)
 				logger.Debug("recv.response.relocate", u.String())
 			}
+			resp.Body.Close()
 			continue
 		}
 
