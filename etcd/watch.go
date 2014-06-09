@@ -9,6 +9,8 @@ var (
 	ErrWatchStoppedByUser = errors.New("Watch stopped by the user via stop channel")
 )
 
+// Watch monitors a etcd file or directory with a given prefix for changes 
+//
 // If recursive is set to true the watch returns the first change under the given
 // prefix since the given index.
 //
@@ -18,9 +20,9 @@ var (
 // To watch for the latest change, set waitIndex = 0.
 //
 // If a receiver channel is given, it will be a long-term watch. Watch will block at the
-//channel. After someone receives the channel, it will go on to watch that
+// channel. After someone receives the channel, it will go on to watch that
 // prefix.  If a stop channel is given, the client can close long-term watch using
-// the stop channel.
+// the stop channel; This has the side effect of closing the receiver channel
 func (c *Client) Watch(prefix string, waitIndex uint64, recursive bool,
 	receiver chan *Response, stop chan bool) (*Response, error) {
 	logger.Debugf("watch %s [%s]", prefix, c.cluster.Leader)
@@ -53,6 +55,20 @@ func (c *Client) Watch(prefix string, waitIndex uint64, recursive bool,
 	}
 }
 
+// RawWatch monitors a etcd file or directory with a given prefix for changes
+//
+// If recursive is set to true the watch returns the first change under the given
+// prefix since the given index.
+//
+// If recursive is set to false the watch returns the first change to the given key
+// since the given index.
+//
+// To watch for the latest change, set waitIndex = 0.
+//
+// If a receiver channel is given, it will be a long-term watch. Watch will block at the
+// channel. After someone receives the channel, it will go on to watch that
+// prefix.  If a stop channel is given, the client can close long-term watch using
+// the stop channel
 func (c *Client) RawWatch(prefix string, waitIndex uint64, recursive bool,
 	receiver chan *RawResponse, stop chan bool) (*RawResponse, error) {
 
