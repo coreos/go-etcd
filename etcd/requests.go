@@ -259,29 +259,25 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 		}
 
 		// if there is no error, it should receive response
-		logger.Debug("recv.response.from", httpPath)
+		logger.Debug("recv.response.from", resp.Request.URL.String())
+
+		logger.Debugf("recv.response.status %d", resp.StatusCode)
 
 		if validHttpStatusCode[resp.StatusCode] {
 			// try to read byte code and break the loop
 			respBody, err = ioutil.ReadAll(resp.Body)
-			if err == nil {
-				logger.Debug("recv.success.", httpPath)
+
+			// It is possible that both respoBody and err are non-nil. Thus, check
+			// if the respBody is not nil and if it isn't then we have a successful response.
+			if respBody != nil {
+				logger.Debug("recv.success.from", resp.Request.URL.String())
 				break
+			} else {
+				return nil, err
 			}
 		}
 
-		// if resp is TemporaryRedirect, set the new leader and retry
 		if resp.StatusCode == http.StatusTemporaryRedirect {
-			u, err := resp.Location()
-
-			if err != nil {
-				logger.Warning(err)
-			} else {
-				// Update cluster leader based on redirect location
-				// because it should point to the leader address
-				c.cluster.updateLeaderFromURL(u)
-				logger.Debug("recv.response.relocate", u.String())
-			}
 			resp.Body.Close()
 			continue
 		}
@@ -315,11 +311,11 @@ func DefaultCheckRetry(cluster *Cluster, numReqs int, lastResp http.Response,
 
 	code := lastResp.StatusCode
 	if code == http.StatusInternalServerError {
+		logger.Warning("Received internal server error. Sleeping", code)
 		time.Sleep(time.Millisecond * 200)
 
 	}
 
-	logger.Warning("bad response status code", code)
 	return nil
 }
 

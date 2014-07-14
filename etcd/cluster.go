@@ -3,11 +3,13 @@ package etcd
 import (
 	"net/url"
 	"strings"
+	"sync"
 )
 
 type Cluster struct {
-	Leader   string   `json:"leader"`
-	Machines []string `json:"machines"`
+	Leader   string     `json:"leader"`
+	Machines []string   `json:"machines"`
+	mutex    sync.Mutex `json:"-"`
 }
 
 func NewCluster(machines []string) *Cluster {
@@ -20,6 +22,7 @@ func NewCluster(machines []string) *Cluster {
 	return &Cluster{
 		Leader:   machines[0],
 		Machines: machines,
+		mutex:    sync.Mutex{},
 	}
 }
 
@@ -28,15 +31,22 @@ func (cl *Cluster) switchLeader(num int) {
 	logger.Debugf("switch.leader[from %v to %v]",
 		cl.Leader, cl.Machines[num])
 
+	cl.mutex.Lock()
+	defer cl.mutex.Unlock()
 	cl.Leader = cl.Machines[num]
 }
 
 func (cl *Cluster) updateFromStr(machines string) {
+	cl.mutex.Lock()
+	defer cl.mutex.Unlock()
 	cl.Machines = strings.Split(machines, ", ")
 }
 
 func (cl *Cluster) updateLeader(leader string) {
-	logger.Debugf("update.leader[%s,%s]", cl.Leader, leader)
+	logger.Debugf("update.leader[from %s to %s]", cl.Leader, leader)
+
+	cl.mutex.Lock()
+	defer cl.mutex.Unlock()
 	cl.Leader = leader
 }
 
@@ -47,5 +57,6 @@ func (cl *Cluster) updateLeaderFromURL(u *url.URL) {
 	} else {
 		leader = u.Scheme + "://" + u.Host
 	}
+
 	cl.updateLeader(leader)
 }
