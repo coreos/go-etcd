@@ -268,6 +268,12 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 				logger.Debug("recv.success.", httpPath)
 				break
 			}
+			// ReadAll error may be caused due to cancel request
+			select {
+			case <-cancelled:
+				return nil, ErrRequestCancelled
+			default:
+			}
 		}
 
 		// if resp is TemporaryRedirect, set the new leader and retry
