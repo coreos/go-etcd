@@ -22,12 +22,12 @@ type etcdLogger struct {
 }
 
 func (p *etcdLogger) Debug(args ...interface{}) {
-	msg := "DEBUG: " + fmt.Sprint(args)
+	msg := "DEBUG: " + fmt.Sprint(args...)
 	p.log.Println(msg)
 }
 
 func (p *etcdLogger) Debugf(f string, args ...interface{}) {
-	msg := "DEBUG: " + fmt.Sprintf(f, args)
+	msg := "DEBUG: " + fmt.Sprintf(f, args...)
 	// Append newline if necessary
 	if !strings.HasSuffix(msg, "\n") {
 		msg = msg + "\n"
@@ -36,12 +36,12 @@ func (p *etcdLogger) Debugf(f string, args ...interface{}) {
 }
 
 func (p *etcdLogger) Warning(args ...interface{}) {
-	msg := "WARNING: " + fmt.Sprint(args)
+	msg := "WARNING: " + fmt.Sprint(args...)
 	p.log.Println(msg)
 }
 
 func (p *etcdLogger) Warningf(f string, args ...interface{}) {
-	msg := "WARNING: " + fmt.Sprintf(f, args)
+	msg := "WARNING: " + fmt.Sprintf(f, args...)
 	// Append newline if necessary
 	if !strings.HasSuffix(msg, "\n") {
 		msg = msg + "\n"
