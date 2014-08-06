@@ -40,6 +40,7 @@ type Client struct {
 	config      Config   `json:"config"`
 	cluster     *Cluster `json:"cluster"`
 	httpClient  *http.Client
+	transport   *http.Transport
 	persistence io.Writer
 	cURLch      chan string
 	// CheckRetry can be used to control the policy for failed requests
@@ -176,6 +177,7 @@ func (c *Client) initHTTPClient() {
 			InsecureSkipVerify: true,
 		},
 	}
+	c.transport = tr
 	c.httpClient = &http.Client{Transport: tr}
 }
 
@@ -208,6 +210,13 @@ func (c *Client) initHTTPSClient(cert, key string) error {
 // written every time it's changed.
 func (c *Client) SetPersistence(writer io.Writer) {
 	c.persistence = writer
+}
+
+// Closes the etcd client. Currently this just forces immediate close for all idle keep-alive connections
+func (c *Client) Close() {
+	if c.transport != nil {
+		c.transport.CloseIdleConnections()
+	}
 }
 
 // SetConsistency changes the consistency level of the client.
