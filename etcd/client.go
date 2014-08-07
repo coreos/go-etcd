@@ -58,6 +58,37 @@ type Client struct {
 		lastResp http.Response, err error) error
 }
 
+type CustomTransport struct {
+	client    *Client
+	transport http.Transport
+}
+
+func (custom *CustomTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	resp, err = custom.transport.RoundTrip(req)
+	if err != nil {
+		return
+	}
+	switch resp.StatusCode {
+	case http.StatusTemporaryRedirect:
+		{
+			u, err := resp.Location()
+
+			if err != nil {
+				logger.Warningf("Temporary redirects should have a Location in the header: %s", err.Error())
+				return nil, err
+			} else {
+				// Update cluster leader based on redirect location
+				// because it should point to the leader address
+				logger.Debug("recv.response.relocate", u.String())
+				custom.client.cluster.updateLeaderFromURL(u)
+				return resp, nil
+			}
+		}
+	default:
+		return
+	}
+}
+
 // NewClient create a basic client that is configured to be used
 // with the given machine list.
 func NewClient(machines []string) *Client {
@@ -170,12 +201,16 @@ func (c *Client) SetTransport(tr *http.Transport) {
 
 // initHTTPClient initializes a HTTP client for etcd client
 func (c *Client) initHTTPClient() {
-	tr := &http.Transport{
-		Dial: c.dial,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
+	tr := &CustomTransport{
+		client: c,
+		transport: http.Transport{
+			Dial: c.dial,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
 		},
 	}
+
 	c.httpClient = &http.Client{Transport: tr}
 }
 
@@ -195,9 +230,12 @@ func (c *Client) initHTTPSClient(cert, key string) error {
 		InsecureSkipVerify: true,
 	}
 
-	tr := &http.Transport{
-		TLSClientConfig: tlsConfig,
-		Dial:            c.dial,
+	tr := &CustomTransport{
+		client: c,
+		transport: http.Transport{
+			Dial:            c.dial,
+			TLSClientConfig: tlsConfig,
+		},
 	}
 
 	c.httpClient = &http.Client{Transport: tr}

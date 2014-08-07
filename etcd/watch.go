@@ -25,21 +25,37 @@ func (c *Client) Watch(prefix string, waitIndex uint64, recursive bool,
 	receiver chan *Response, stop chan bool) (*Response, error) {
 	logger.Debugf("watch %s [%s]", prefix, c.cluster.Leader)
 	if receiver == nil {
+		logger.Debugf("short-term watch on %s starting", prefix)
+
 		raw, err := c.watchOnce(prefix, waitIndex, recursive, stop)
 
 		if err != nil {
+			logger.Debugf("short-term watch on %s ended with error %s", prefix, err.Error())
+
 			return nil, err
 		}
+
+		logger.Debugf("short-term watch on %s ended", prefix)
 
 		return raw.Unmarshal()
 	}
 	defer close(receiver)
 
 	for {
+		logger.Debugf("long-term watch on %s starting", prefix)
+
 		raw, err := c.watchOnce(prefix, waitIndex, recursive, stop)
 
 		if err != nil {
 			return nil, err
+		}
+
+		if len(raw.Body) == 0 {
+			logger.Debugf("received a body of size 0 for a watch on %s", prefix)
+
+			// It appears that etcd can return empty bodies under certain circumstanes (i.e. leadership change). If this happens
+			// restart the watch.
+			continue
 		}
 
 		resp, err := raw.Unmarshal()
@@ -58,14 +74,36 @@ func (c *Client) RawWatch(prefix string, waitIndex uint64, recursive bool,
 
 	logger.Debugf("rawWatch %s [%s]", prefix, c.cluster.Leader)
 	if receiver == nil {
-		return c.watchOnce(prefix, waitIndex, recursive, stop)
+		logger.Debugf("short-term watch on %s starting", prefix)
+
+		raw, err := c.watchOnce(prefix, waitIndex, recursive, stop)
+
+		if err != nil {
+			logger.Debugf("short-term watch on %s ended with error %s", prefix, err.Error())
+
+			return nil, err
+		}
+
+		logger.Debugf("short-term watch on %s ended", prefix)
+
+		return raw, nil
 	}
 
 	for {
+		logger.Debugf("long-term watch on %s starting", prefix)
+
 		raw, err := c.watchOnce(prefix, waitIndex, recursive, stop)
 
 		if err != nil {
 			return nil, err
+		}
+
+		if len(raw.Body) == 0 {
+			logger.Debugf("received a body of size 0 for a watch on %s", prefix)
+
+			// It appears that etcd can return empty bodies under certain circumstanes (i.e. leadership change). If this happens
+			// restart the watch.
+			continue
 		}
 
 		resp, err := raw.Unmarshal()
@@ -97,6 +135,10 @@ func (c *Client) watchOnce(key string, waitIndex uint64, recursive bool, stop ch
 
 	if err == ErrRequestCancelled {
 		return nil, ErrWatchStoppedByUser
+	}
+
+	if err != nil {
+		logger.Debugf("Watching %s had an error %s", key, err.Error())
 	}
 
 	return resp, err
