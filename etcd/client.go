@@ -231,6 +231,11 @@ func (c *Client) SetConsistency(consistency string) error {
 	return nil
 }
 
+// Sets the DialTimeout value
+func (c *Client) SetDialTimeout(d time.Duration) {
+	c.config.DialTimeout = d
+}
+
 // AddRootCA adds a root CA cert for the etcd client
 func (c *Client) AddRootCA(caCert string) error {
 	if c.httpClient == nil {
