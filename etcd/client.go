@@ -56,6 +56,10 @@ type Client struct {
 	// Argument err is the reason of the failure.
 	CheckRetry func(cluster *Cluster, numReqs int,
 		lastResp http.Response, err error) error
+	// TranslateAddress can be used to process addresses that are local to the
+	// etcd cluster into ones that are accessable from the client. Argument
+	// addr is the original address.
+	TranslateAddress func(addr string) (string, error)
 }
 
 // NewClient create a basic client that is configured to be used
@@ -339,7 +343,17 @@ func (c *Client) createHttpPath(serverName string, _path string) string {
 // dial attempts to open a TCP connection to the provided address, explicitly
 // enabling keep-alives with a one-second interval.
 func (c *Client) dial(network, addr string) (net.Conn, error) {
-	conn, err := net.DialTimeout(network, addr, c.config.DialTimeout)
+	translateAddress := c.TranslateAddress
+	if translateAddress == nil {
+		translateAddress = DefaultTranslateAddress
+	}
+
+	taddr, err := translateAddress(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := net.DialTimeout(network, taddr, c.config.DialTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -432,4 +446,10 @@ func (c *Client) UnmarshalJSON(b []byte) error {
 	c.cluster = temp.Cluster
 	c.config = temp.Config
 	return nil
+}
+
+// DefaultTranslateAddress is a no-op default for a client's TranslateAddress
+// method.
+func DefaultTranslateAddress(addr string) (string, error) {
+	return addr, nil
 }
