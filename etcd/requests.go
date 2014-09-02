@@ -214,21 +214,29 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 
 		logger.Debug("send.request.to ", httpPath, " | method ", rr.Method)
 
-		reqLock.Lock()
-		if rr.Values == nil {
-			if req, err = http.NewRequest(rr.Method, httpPath, nil); err != nil {
-				return nil, err
-			}
-		} else {
-			body := strings.NewReader(rr.Values.Encode())
-			if req, err = http.NewRequest(rr.Method, httpPath, body); err != nil {
-				return nil, err
-			}
+		req, err := func() (*http.Request, error) {
+			reqLock.Lock()
+			defer reqLock.Unlock()
 
-			req.Header.Set("Content-Type",
-				"application/x-www-form-urlencoded; param=value")
+			if rr.Values == nil {
+				if req, err = http.NewRequest(rr.Method, httpPath, nil); err != nil {
+					return nil, err
+				}
+			} else {
+				body := strings.NewReader(rr.Values.Encode())
+				if req, err = http.NewRequest(rr.Method, httpPath, body); err != nil {
+					return nil, err
+				}
+
+				req.Header.Set("Content-Type",
+					"application/x-www-form-urlencoded; param=value")
+			}
+			return req, nil
+		}()
+
+		if err != nil {
+			return nil, err
 		}
-		reqLock.Unlock()
 
 		resp, err = c.httpClient.Do(req)
 		defer func() {
