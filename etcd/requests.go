@@ -3,6 +3,7 @@ package etcd
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -179,6 +180,7 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 	// we connect to a leader
 	sleep := 25 * time.Millisecond
 	maxSleep := time.Second
+
 	for attempt := 0; ; attempt++ {
 		if attempt > 0 {
 			select {
@@ -281,6 +283,15 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 			case <-cancelled:
 				return nil, ErrRequestCancelled
 			default:
+			}
+
+			if err == io.ErrUnexpectedEOF {
+				// underlying connection was closed prematurely, probably by timeout
+				// TODO: empty body or unexpectedEOF can cause http.Transport to get hosed;
+				// this allows the client to detect that and take evasive action. Need
+				// to revisit once code.google.com/p/go/issues/detail?id=8648 gets fixed.
+				respBody = []byte{}
+				break
 			}
 		}
 
