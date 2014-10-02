@@ -68,13 +68,6 @@ func (c *Client) RawWatch(prefix string, waitIndex uint64, recursive bool,
 			return nil, err
 		}
 
-		resp, err := raw.Unmarshal()
-
-		if err != nil {
-			return nil, err
-		}
-
-		waitIndex = resp.Node.ModifiedIndex + 1
 		receiver <- raw
 	}
 }
