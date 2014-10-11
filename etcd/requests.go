@@ -192,7 +192,7 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 			}
 		}
 
-		logger.Debug("Connecting to etcd: attempt", attempt+1, "for", rr.RelativePath)
+		logger.Debug("Connecting to etcd: attempt ", attempt+1, " for ", rr.RelativePath)
 
 		if rr.Method == "GET" && c.config.Consistency == WEAK_CONSISTENCY {
 			// If it's a GET and consistency level is set to WEAK,
@@ -248,7 +248,7 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 
 		// network error, change a machine!
 		if err != nil {
-			logger.Debug("network error:", err.Error())
+			logger.Debug("network error: ", err.Error())
 			lastResp := http.Response{}
 			if checkErr := checkRetry(c.cluster, numReqs, lastResp, err); checkErr != nil {
 				return nil, checkErr
@@ -259,13 +259,13 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 		}
 
 		// if there is no error, it should receive response
-		logger.Debug("recv.response.from", httpPath)
+		logger.Debug("recv.response.from ", httpPath)
 
 		if validHttpStatusCode[resp.StatusCode] {
 			// try to read byte code and break the loop
 			respBody, err = ioutil.ReadAll(resp.Body)
 			if err == nil {
-				logger.Debug("recv.success.", httpPath)
+				logger.Debug("recv.success ", httpPath)
 				break
 			}
 			// ReadAll error may be caused due to cancel request
@@ -286,7 +286,7 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 				// Update cluster leader based on redirect location
 				// because it should point to the leader address
 				c.cluster.updateLeaderFromURL(u)
-				logger.Debug("recv.response.relocate", u.String())
+				logger.Debug("recv.response.relocate ", u.String())
 			}
 			resp.Body.Close()
 			continue
