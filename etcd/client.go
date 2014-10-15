@@ -192,6 +192,7 @@ func (c *Client) initHTTPSClient(cert, key string) error {
 
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
+		MinVersion:   tls.VersionTLS10,
 	}
 
 	tr := &http.Transport{
