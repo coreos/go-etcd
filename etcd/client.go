@@ -179,7 +179,7 @@ func (c *Client) initHTTPClient() {
 	c.httpClient = &http.Client{Transport: tr}
 }
 
-// initHTTPClient initializes a HTTPS client for etcd client
+// initHTTPSClient initializes a HTTPS client for etcd client
 func (c *Client) initHTTPSClient(cert, key string) error {
 	if cert == "" || key == "" {
 		return errors.New("Require both cert and key path")
@@ -191,8 +191,7 @@ func (c *Client) initHTTPSClient(cert, key string) error {
 	}
 
 	tlsConfig := &tls.Config{
-		Certificates:       []tls.Certificate{tlsCert},
-		InsecureSkipVerify: true,
+		Certificates: []tls.Certificate{tlsCert},
 	}
 
 	tr := &http.Transport{
