@@ -356,7 +356,7 @@ func (c *Client) getHttpPath(random bool, s ...string) string {
 		machine = c.cluster.Leader
 	}
 
-	fullPath := machine + "/" + version
+	fullPath := machine
 	for _, seg := range s {
 		fullPath = fullPath + "/" + seg
 	}
@@ -383,13 +383,13 @@ func buildValues(value string, ttl uint64) url.Values {
 // for example: key[foo] -> path[keys/foo]
 // key[/] -> path[keys/]
 func keyToPath(key string) string {
-	p := path.Join("keys", key)
+	p := path.Join(version, "keys", key)
 
 	// corner case: if key is "/" or "//" ect
 	// path join will clear the tailing "/"
 	// we need to add it back
-	if p == "keys" {
-		p = "keys/"
+	if key == "/" || key == "//" {
+		p += "/"
 	}
 
 	return p
