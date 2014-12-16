@@ -333,7 +333,7 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 func DefaultCheckRetry(cluster *Cluster, numReqs int, lastResp http.Response,
 	err error) error {
 
-	if numReqs >= 2*len(cluster.Machines) {
+	if numReqs > 2*len(cluster.Machines) {
 		return newError(ErrCodeEtcdNotReachable,
 			"Tried to connect to each peer twice and failed", 0)
 	}
