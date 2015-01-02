@@ -29,11 +29,10 @@ const (
 )
 
 type Config struct {
-	CertFile    string        `json:"certFile"`
-	KeyFile     string        `json:"keyFile"`
-	CaCertFile  []string      `json:"caCertFiles"`
-	DialTimeout time.Duration `json:"timeout"`
-	Consistency string        `json:"consistency"`
+	CertFile    string   `json:"certFile"`
+	KeyFile     string   `json:"keyFile"`
+	CaCertFile  []string `json:"caCertFiles"`
+	Consistency string   `json:"consistency"`
 }
 
 type Client struct {
@@ -58,25 +57,36 @@ type Client struct {
 		lastResp http.Response, err error) error
 }
 
+// NewConfiguredClient creates a client that use the given machine list,
+// client configuration, and HTTP client.
+func NewConfiguredClient(machines []string, config Config, httpClient *http.Client) *Client {
+	client := &Client{
+		cluster:    NewCluster(machines),
+		config:     config,
+		httpClient: httpClient,
+	}
+
+	client.saveConfig()
+
+	return client
+}
+
 // NewClient create a basic client that is configured to be used
 // with the given machine list.
 func NewClient(machines []string) *Client {
+	// set the default machine to use HTTP
+	if len(machines) == 0 {
+		machines = []string{"http://127.0.0.1:4001"}
+	}
+
 	config := Config{
-		// default timeout is one second
-		DialTimeout: time.Second,
 		// default consistency level is STRONG
 		Consistency: STRONG_CONSISTENCY,
 	}
 
-	client := &Client{
-		cluster: NewCluster(machines),
-		config:  config,
-	}
+	httpClient := defaultHTTPClient()
 
-	client.initHTTPClient()
-	client.saveConfig()
-
-	return client
+	return NewConfiguredClient(machines, config, httpClient)
 }
 
 // NewTLSClient create a basic client with TLS configuration
@@ -87,8 +97,6 @@ func NewTLSClient(machines []string, cert, key, caCert string) (*Client, error) 
 	}
 
 	config := Config{
-		// default timeout is one second
-		DialTimeout: time.Second,
 		// default consistency level is STRONG
 		Consistency: STRONG_CONSISTENCY,
 		CertFile:    cert,
@@ -96,19 +104,16 @@ func NewTLSClient(machines []string, cert, key, caCert string) (*Client, error) 
 		CaCertFile:  make([]string, 0),
 	}
 
-	client := &Client{
-		cluster: NewCluster(machines),
-		config:  config,
-	}
-
-	err := client.initHTTPSClient(cert, key)
+	httpClient, err := defaultHTTPSClient(cert, key)
 	if err != nil {
 		return nil, err
 	}
 
-	err = client.AddRootCA(caCert)
+	client := NewConfiguredClient(machines, config, httpClient)
 
-	client.saveConfig()
+	if err := client.AddRootCA(caCert); err != nil {
+		return nil, err
+	}
 
 	return client, nil
 }
@@ -133,34 +138,34 @@ func NewClientFromFile(fpath string) (*Client, error) {
 // NewClientFromReader creates a Client configured from a given reader.
 // The configuration is expected to use the JSON format.
 func NewClientFromReader(reader io.Reader) (*Client, error) {
-	c := new(Client)
+	var client *Client
 
 	b, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
 
-	err = json.Unmarshal(b, c)
-	if err != nil {
+	if err = json.Unmarshal(b, &client); err != nil {
 		return nil, err
 	}
-	if c.config.CertFile == "" {
-		c.initHTTPClient()
+
+	if client.config.CertFile == "" {
+		client.httpClient = defaultHTTPClient()
 	} else {
-		err = c.initHTTPSClient(c.config.CertFile, c.config.KeyFile)
+		httpsClient, err := defaultHTTPSClient(client.config.CertFile, client.config.KeyFile)
+		if err != nil {
+			return nil, err
+		}
+		client.httpClient = httpsClient
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	for _, caCert := range c.config.CaCertFile {
-		if err := c.AddRootCA(caCert); err != nil {
+	for _, caCert := range client.config.CaCertFile {
+		if err := client.AddRootCA(caCert); err != nil {
 			return nil, err
 		}
 	}
 
-	return c, nil
+	return client, nil
 }
 
 // Override the Client's HTTP Transport object
@@ -169,25 +174,25 @@ func (c *Client) SetTransport(tr *http.Transport) {
 }
 
 // initHTTPClient initializes a HTTP client for etcd client
-func (c *Client) initHTTPClient() {
+func defaultHTTPClient() *http.Client {
 	tr := &http.Transport{
-		Dial: c.dial,
+		Dial: dial,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 		},
 	}
-	c.httpClient = &http.Client{Transport: tr}
+	return &http.Client{Transport: tr}
 }
 
 // initHTTPClient initializes a HTTPS client for etcd client
-func (c *Client) initHTTPSClient(cert, key string) error {
+func defaultHTTPSClient(cert, key string) (*http.Client, error) {
 	if cert == "" || key == "" {
-		return errors.New("Require both cert and key path")
+		return nil, errors.New("Require both cert and key path")
 	}
 
 	tlsCert, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	tlsConfig := &tls.Config{
@@ -197,11 +202,10 @@ func (c *Client) initHTTPSClient(cert, key string) error {
 
 	tr := &http.Transport{
 		TLSClientConfig: tlsConfig,
-		Dial:            c.dial,
+		Dial:            dial,
 	}
 
-	c.httpClient = &http.Client{Transport: tr}
-	return nil
+	return &http.Client{Transport: tr}, nil
 }
 
 // SetPersistence sets a writer to which the config will be
@@ -232,9 +236,9 @@ func (c *Client) SetConsistency(consistency string) error {
 }
 
 // Sets the DialTimeout value
-func (c *Client) SetDialTimeout(d time.Duration) {
-	c.config.DialTimeout = d
-}
+// func (c *Client) SetDialTimeout(d time.Duration) {
+// 	c.config.DialTimeout = d
+// }
 
 // AddRootCA adds a root CA cert for the etcd client
 func (c *Client) AddRootCA(caCert string) error {
@@ -338,8 +342,8 @@ func (c *Client) createHttpPath(serverName string, _path string) string {
 
 // dial attempts to open a TCP connection to the provided address, explicitly
 // enabling keep-alives with a one-second interval.
-func (c *Client) dial(network, addr string) (net.Conn, error) {
-	conn, err := net.DialTimeout(network, addr, c.config.DialTimeout)
+func dial(network, addr string) (net.Conn, error) {
+	conn, err := net.DialTimeout(network, addr, time.Second)
 	if err != nil {
 		return nil, err
 	}
