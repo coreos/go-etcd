@@ -93,9 +93,15 @@ func (c *Client) put(key string, value string, ttl uint64,
 }
 
 // post issues a POST request
-func (c *Client) post(key string, value string, ttl uint64) (*RawResponse, error) {
+func (c *Client) post(key string, value string, ttl uint64, options Options) (*RawResponse, error) {
 	logger.Debugf("post %s, %s, ttl: %d, [%s]", key, value, ttl, c.cluster.Leader)
 	p := keyToPath(key)
+
+	str, err := options.toParameters(VALID_POST_OPTIONS)
+	if err != nil {
+		return nil, err
+	}
+	p += str
 
 	req := NewRawRequest("POST", p, buildValues(value, ttl), nil)
 	resp, err := c.SendRequest(req)

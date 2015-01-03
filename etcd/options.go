@@ -31,7 +31,9 @@ var (
 		"dir":       reflect.Bool,
 	}
 
-	VALID_POST_OPTIONS = validOptions{}
+	VALID_POST_OPTIONS = validOptions{
+		"dir": reflect.Bool,
+	}
 
 	VALID_DELETE_OPTIONS = validOptions{
 		"recursive": reflect.Bool,

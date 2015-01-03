@@ -133,5 +133,5 @@ func (c *Client) RawCreate(key string, value string, ttl uint64) (*RawResponse, 
 }
 
 func (c *Client) RawCreateInOrder(dir string, value string, ttl uint64) (*RawResponse, error) {
-	return c.post(dir, value, ttl)
+	return c.post(dir, value, ttl, Options{})
 }
