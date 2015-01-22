@@ -46,3 +46,13 @@ func handleError(b []byte) error {
 
 	return etcdErr
 }
+
+// IsEtcdError returns true if the given error is a "github.com/coreos/go-etcd/etcd".*EtcdError
+// and has the given ErrorCode. For error codes, see https://github.com/coreos/etcd/blob/master/error/error.go
+func IsEtcdError(err error, code int) bool {
+	eerr, ok := err.(*EtcdError)
+	if ok {
+		return eerr.ErrorCode == code
+	}
+	return false
+}
