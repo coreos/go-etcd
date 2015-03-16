@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -302,19 +303,46 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 func DefaultCheckRetry(cluster *Cluster, numReqs int, lastResp http.Response,
 	err error) error {
 
+	if isEmptyResponse(lastResp) {
+		if !isConnectionError(err) {
+			return err
+		}
+	} else if !shouldRetry(lastResp) {
+		body := []byte("nil")
+		if lastResp.Body != nil {
+			if b, err := ioutil.ReadAll(lastResp.Body); err == nil {
+				body = b
+			}
+		}
+		errStr := fmt.Sprintf("unhandled http status [%s] with body [%s]", http.StatusText(lastResp.StatusCode), body)
+		return newError(ErrCodeUnhandledHTTPStatus, errStr, 0)
+	}
+
 	if numReqs > 2*len(cluster.Machines) {
-		return newError(ErrCodeEtcdNotReachable,
-			"Tried to connect to each peer twice and failed", 0)
+		errStr := fmt.Sprintf("failed to propose on members %v twice [last error: %v]", cluster.Machines, err)
+		return newError(ErrCodeEtcdNotReachable, errStr, 0)
 	}
-
-	code := lastResp.StatusCode
-	if code == http.StatusInternalServerError {
+	if shouldRetry(lastResp) {
+		// sleep some time and expect leader election finish
 		time.Sleep(time.Millisecond * 200)
-
 	}
 
-	logger.Warning("bad response status code", code)
+	logger.Warning("bad response status code", lastResp.StatusCode)
 	return nil
+}
+
+func isEmptyResponse(r http.Response) bool { return r.StatusCode == 0 }
+
+func isConnectionError(err error) bool {
+	_, ok := err.(*net.OpError)
+	return ok
+}
+
+// shouldRetry returns whether the reponse deserves retry.
+func shouldRetry(r http.Response) bool {
+	// TODO: only retry when the cluster is in leader election
+	// We cannot do it exactly because etcd doesn't support it well.
+	return r.StatusCode == http.StatusInternalServerError
 }
 
 func (c *Client) getHttpPath(s ...string) string {
