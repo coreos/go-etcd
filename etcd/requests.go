@@ -197,6 +197,9 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 			for key, value := range rr.Values {
 				command += fmt.Sprintf(" -d %s=%s", key, value[0])
 			}
+			if c.credentials != nil {
+				command += fmt.Sprintf(" -u %s", c.credentials.username)
+			}
 			c.sendCURL(command)
 		}
 
@@ -224,6 +227,10 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 
 		if err != nil {
 			return nil, err
+		}
+
+		if c.credentials != nil {
+			req.SetBasicAuth(c.credentials.username, c.credentials.password)
 		}
 
 		resp, err = c.httpClient.Do(req)
