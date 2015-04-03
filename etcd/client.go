@@ -44,10 +44,16 @@ type Config struct {
 	Consistency string        `json:"consistency"`
 }
 
+type credentials struct {
+	username string
+	password string
+}
+
 type Client struct {
 	config      Config   `json:"config"`
 	cluster     *Cluster `json:"cluster"`
 	httpClient  *http.Client
+	credentials *credentials
 	transport   *http.Transport
 	persistence io.Writer
 	cURLch      chan string
@@ -174,6 +180,10 @@ func NewClientFromReader(reader io.Reader) (*Client, error) {
 func (c *Client) SetTransport(tr *http.Transport) {
 	c.httpClient.Transport = tr
 	c.transport = tr
+}
+
+func (c *Client) SetCredentials(username, password string) {
+	c.credentials = &credentials{username, password}
 }
 
 func (c *Client) Close() {
