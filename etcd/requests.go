@@ -189,7 +189,10 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 
 		logger.Debug("Connecting to etcd: attempt ", attempt+1, " for ", rr.RelativePath)
 
-		httpPath = c.getHttpPath(rr.RelativePath)
+		// get httpPath if not set
+		if httpPath == "" {
+			httpPath = c.getHttpPath(rr.RelativePath)
+		}
 
 		// Return a cURL command if curlChan is set
 		if c.cURLch != nil {
@@ -234,6 +237,8 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 		}
 
 		resp, err = c.httpClient.Do(req)
+		// clear previous httpPath
+		httpPath = ""
 		defer func() {
 			if resp != nil {
 				resp.Body.Close()
@@ -286,6 +291,19 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 				respBody = []byte{}
 				break
 			}
+		}
+
+		if resp.StatusCode == http.StatusTemporaryRedirect {
+			u, err := resp.Location()
+
+			if err != nil {
+				logger.Warning(err)
+			} else {
+				// set httpPath for following redirection
+				httpPath = u.String()
+			}
+			resp.Body.Close()
+			continue
 		}
 
 		if checkErr := checkRetry(c.cluster, numReqs, *resp,
