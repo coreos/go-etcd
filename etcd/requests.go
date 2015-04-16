@@ -360,7 +360,9 @@ func isEmptyResponse(r http.Response) bool { return r.StatusCode == 0 }
 
 func isConnectionError(err error) bool {
 	_, ok := err.(*net.OpError)
-	return ok
+	// dial may return url error
+	_, ok2 := err.(*url.Error)
+	return ok || ok2
 }
 
 // shouldRetry returns whether the reponse deserves retry.
