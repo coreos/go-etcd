@@ -320,31 +320,49 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 			continue
 		}
 
-		b, err := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			// try another machine in the cluster
-			continue
-		}
+		if resp.StatusCode != http.StatusOK { // fall-back to old endpoint
+			httpPath := c.createHttpPath(machine, path.Join(version, "machines"))
+			resp, err := c.httpClient.Get(httpPath)
+			if err != nil {
+				// try another machine in the cluster
+				continue
+			}
+			b, err := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				// try another machine in the cluster
+				continue
+			}
+			// update Machines List
+			c.cluster.updateFromStr(string(b))
+		} else {
+			b, err := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				// try another machine in the cluster
+				continue
+			}
 
-		var mCollection memberCollection
-		if err := json.Unmarshal(b, &mCollection); err != nil {
-			// try another machine
-			continue
-		}
+			var mCollection memberCollection
+			if err := json.Unmarshal(b, &mCollection); err != nil {
+				// try another machine
+				continue
+			}
 
-		urls := make([]string, 0)
-		for _, m := range mCollection {
-			urls = append(urls, m.ClientURLs...)
-		}
+			urls := make([]string, 0)
+			for _, m := range mCollection {
+				urls = append(urls, m.ClientURLs...)
+			}
 
-		// update Machines List
-		c.cluster.updateFromStr(strings.Join(urls, ","))
+			// update Machines List
+			c.cluster.updateFromStr(strings.Join(urls, ","))
+		}
 
 		logger.Debug("sync.machines ", c.cluster.Machines)
 		c.saveConfig()
 		return true
 	}
+
 	return false
 }
 
