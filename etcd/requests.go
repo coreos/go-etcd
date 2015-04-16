@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -329,9 +328,8 @@ func DefaultCheckRetry(cluster *Cluster, numReqs int, lastResp http.Response,
 	err error) error {
 
 	if isEmptyResponse(lastResp) {
-		if !isConnectionError(err) {
-			return err
-		}
+		// always retry if it failed to get response from one machine
+		return err
 	} else if !shouldRetry(lastResp) {
 		body := []byte("nil")
 		if lastResp.Body != nil {
@@ -357,11 +355,6 @@ func DefaultCheckRetry(cluster *Cluster, numReqs int, lastResp http.Response,
 }
 
 func isEmptyResponse(r http.Response) bool { return r.StatusCode == 0 }
-
-func isConnectionError(err error) bool {
-	_, ok := err.(*net.OpError)
-	return ok
-}
 
 // shouldRetry returns whether the reponse deserves retry.
 func shouldRetry(r http.Response) bool {
