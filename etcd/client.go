@@ -15,8 +15,6 @@ import (
 	"path"
 	"strings"
 	"time"
-
-	"github.com/coreos/etcd/etcdserver/etcdhttp/httptypes"
 )
 
 // See SetConsistency for how to use these constants.
@@ -329,7 +327,7 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 			continue
 		}
 
-		var mCollection httptypes.MemberCollection
+		var mCollection memberCollection
 		if err := json.Unmarshal(b, &mCollection); err != nil {
 			// try another machine
 			continue
