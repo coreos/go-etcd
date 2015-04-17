@@ -94,3 +94,13 @@ func TestPersistence(t *testing.T) {
 		t.Fatalf("The two configs should be equal!")
 	}
 }
+
+func TestClientRetry(t *testing.T) {
+	c := NewClient([]string{"http://strange", "http://127.0.0.1:4001"})
+	if _, err := c.Set("foo", "bar", 5); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Delete("foo", true); err != nil {
+		t.Fatal(err)
+	}
+}

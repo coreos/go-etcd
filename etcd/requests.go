@@ -335,7 +335,7 @@ func DefaultCheckRetry(cluster *Cluster, numReqs int, lastResp http.Response,
 
 	if isEmptyResponse(lastResp) {
 		// always retry if it failed to get response from one machine
-		return err
+		return nil
 	} else if !shouldRetry(lastResp) {
 		body := []byte("nil")
 		if lastResp.Body != nil {
