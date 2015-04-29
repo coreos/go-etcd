@@ -30,7 +30,7 @@ func (c *Client) DeleteDir(key string) (*Response, error) {
 	return raw.Unmarshal()
 }
 
-func (c *Client) RawDelete(key string, recursive bool, dir bool) (*RawResponse, error) {
+func (c *Client) RawDelete(key string, recursive, dir bool) (*RawResponse, error) {
 	ops := Options{
 		"recursive": recursive,
 		"dir":       dir,

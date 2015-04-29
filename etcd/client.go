@@ -368,7 +368,7 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 
 // createHttpPath creates a complete HTTP URL.
 // serverName should contain both the host name and a port number, if any.
-func (c *Client) createHttpPath(serverName string, _path string) string {
+func (c *Client) createHttpPath(serverName, _path string) string {
 	u, err := url.Parse(serverName)
 	if err != nil {
 		panic(err)
