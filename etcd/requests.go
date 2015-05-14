@@ -160,19 +160,9 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 				return
 			}
 
-			// Repeat canceling request until this thread is stopped
-			// because we have no idea about whether it succeeds.
-			for {
-				reqLock.Lock()
-				c.httpClient.Transport.(*http.Transport).CancelRequest(req)
-				reqLock.Unlock()
-
-				select {
-				case <-time.After(100 * time.Millisecond):
-				case <-cancelRoutine:
-					return
-				}
-			}
+			reqLock.Lock()
+			c.httpClient.Transport.(*http.Transport).CancelRequest(req)
+			reqLock.Unlock()
 		}()
 	}
 
@@ -238,6 +228,16 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 
 		if err != nil {
 			return nil, err
+		}
+
+		// If the request is cancelled, return ErrRequestCancelled directly.
+		// Do the check here to minimize the time between checking cancelled
+		// and Do request. This reduces the possibility that the request fails
+		// to be cancelled because cancel happens before Do is called.
+		select {
+		case <-cancelled:
+			return nil, ErrRequestCancelled
+		default:
 		}
 
 		resp, err = c.httpClient.Do(req)
