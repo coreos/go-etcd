@@ -152,19 +152,11 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 				return
 			}
 
-			// Repeat canceling request until this thread is stopped
-			// because we have no idea about whether it succeeds.
-			for {
-				reqLock.Lock()
-				c.httpClient.Transport.(*http.Transport).CancelRequest(req)
-				reqLock.Unlock()
 
-				select {
-				case <-time.After(100 * time.Millisecond):
-				case <-cancelRoutine:
-					return
-				}
-			}
+			// Cancel once and return. This is a "best effort", as multiple calls to CancelRequest are unsafe
+			reqLock.Lock()
+			c.httpClient.Transport.(*http.Transport).CancelRequest(req)
+			reqLock.Unlock()
 		}()
 	}
 
