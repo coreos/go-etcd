@@ -35,10 +35,7 @@ func NewRawRequest(method, relativePath string, values url.Values, cancel <-chan
 	}
 }
 
-// getCancelable issues a cancelable GET request
-func (c *Client) getCancelable(key string, options Options,
-	cancel <-chan bool) (*RawResponse, error) {
-	logger.Debugf("get %s [%s]", key, c.cluster.pick())
+func (c *Client) getRequest(key string, options Options, cancel <-chan bool) (*RawRequest, error) {
 	p := keyToPath(key)
 
 	str, err := options.toParameters(VALID_GET_OPTIONS)
@@ -47,7 +44,18 @@ func (c *Client) getCancelable(key string, options Options,
 	}
 	p += str
 
-	req := NewRawRequest("GET", p, nil, cancel)
+	return NewRawRequest("GET", p, nil, cancel), nil
+}
+
+// getCancelable issues a cancelable GET request
+func (c *Client) getCancelable(key string, options Options,
+	cancel <-chan bool) (*RawResponse, error) {
+	logger.Debugf("get %s [%s]", key, c.cluster.pick())
+
+	req, err := c.getRequest(key, options, cancel)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.SendRequest(req)
 
 	if err != nil {
@@ -118,6 +126,31 @@ func (c *Client) delete(key string, options Options) (*RawResponse, error) {
 		return nil, err
 	}
 
+	return resp, nil
+}
+
+// SendHTTP performs a simple http request.
+// TODO: Merge this with SendRequest.
+func (c *Client) SendHTTP(rr *RawRequest) (*http.Response, error) {
+	httpPath := c.getHttpPath(rr.RelativePath)
+	body := strings.NewReader(rr.Values.Encode())
+	req, err := http.NewRequest(rr.Method, httpPath, body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type",
+		"application/x-www-form-urlencoded; param=value")
+
+	if c.credentials != nil {
+		req.SetBasicAuth(c.credentials.username, c.credentials.password)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	// TODO: check status code an retry?
 	return resp, nil
 }
 
