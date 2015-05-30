@@ -192,7 +192,7 @@ func (c *Client) Close() {
 // initHTTPClient initializes a HTTP client for etcd client
 func (c *Client) initHTTPClient() {
 	c.transport = &http.Transport{
-		Dial: c.dial,
+		Dial: c.DefaultDial,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 		},
@@ -218,7 +218,7 @@ func (c *Client) initHTTPSClient(cert, key string) error {
 
 	tr := &http.Transport{
 		TLSClientConfig: tlsConfig,
-		Dial:            c.dial,
+		Dial:            c.DefaultDial,
 	}
 
 	c.httpClient = &http.Client{Transport: tr}
@@ -384,7 +384,7 @@ func (c *Client) createHttpPath(serverName string, _path string) string {
 
 // dial attempts to open a TCP connection to the provided address, explicitly
 // enabling keep-alives with a one-second interval.
-func (c *Client) dial(network, addr string) (net.Conn, error) {
+func (c *Client) DefaultDial(network, addr string) (net.Conn, error) {
 	conn, err := net.DialTimeout(network, addr, c.config.DialTimeout)
 	if err != nil {
 		return nil, err
