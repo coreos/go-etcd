@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -35,6 +36,7 @@ func NewRawRequest(method, relativePath string, values url.Values, cancel <-chan
 	}
 }
 
+// getRequest constructs a RawRequest from the given parameters.
 func (c *Client) getRequest(key string, options Options, cancel <-chan bool) (*RawRequest, error) {
 	p := keyToPath(key)
 
@@ -129,76 +131,147 @@ func (c *Client) delete(key string, options Options) (*RawResponse, error) {
 	return resp, nil
 }
 
-// SendHTTP performs a simple http request.
-// TODO: Merge this with SendRequest.
-func (c *Client) SendHTTP(rr *RawRequest) (*http.Response, error) {
-	httpPath := c.getHttpPath(rr.RelativePath)
-	body := strings.NewReader(rr.Values.Encode())
-	req, err := http.NewRequest(rr.Method, httpPath, body)
+// SendStreamRequest performs a watch that streams back results over the receiver channel.
+func (c *Client) SendStreamRequest(rr *RawRequest, receiver chan *Response, errChan chan error) error {
+	requestManager := NewRequestManager(rr.Cancel, c)
+	if rr.Cancel != nil {
+		defer close(requestManager.stopCh)
+		go requestManager.CancellationHandler()
+	}
+	resp, err := requestManager.send(rr)
 	if err != nil {
-		return nil, err
+		if resp != nil {
+			resp.Body.Close()
+		}
+		return err
 	}
+	decoder := json.NewDecoder(resp.Body)
+	go func() {
+		defer resp.Body.Close()
+		for {
+			got := new(Response)
+			err = decoder.Decode(got)
 
-	req.Header.Set("Content-Type",
-		"application/x-www-form-urlencoded; param=value")
-
-	if c.credentials != nil {
-		req.SetBasicAuth(c.credentials.username, c.credentials.password)
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	// TODO: check status code an retry?
-	return resp, nil
+			// Decode error may be caused due to cancel request
+			select {
+			case <-requestManager.CancellationNotifyChan:
+				errChan <- ErrRequestCancelled
+				return
+			default:
+			}
+			if err != nil {
+				errChan <- err
+				return
+			}
+			// TODO: Dig up if these headers are consistent across stream
+			addHeaders(got, resp.Header)
+			receiver <- got
+		}
+	}()
+	return nil
 }
 
 // SendRequest sends a HTTP request and returns a Response as defined by etcd
 func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
-	var req *http.Request
+
+	requestManager := NewRequestManager(rr.Cancel, c)
+	if rr.Cancel != nil {
+		defer close(requestManager.stopCh)
+		go requestManager.CancellationHandler()
+	}
+
+	resp, err := requestManager.send(rr)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if resp != nil {
+			resp.Body.Close()
+		}
+	}()
+
+	// try to read byte code and break the loop
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err == nil {
+		// TODO: Log httpPath
+		logger.Debug("recv.success ")
+	} else if err == io.ErrUnexpectedEOF {
+		// underlying connection was closed prematurely, probably by timeout
+		// TODO: empty body or unexpectedEOF can cause http.Transport to get hosed;
+		// this allows the client to detect that and take evasive action. Need
+		// to revisit once code.google.com/p/go/issues/detail?id=8648 gets fixed.
+		respBody = []byte{}
+	} else {
+		// ReadAll error may be caused due to cancel request
+		select {
+		case <-requestManager.CancellationNotifyChan:
+			return nil, ErrRequestCancelled
+		default:
+		}
+	}
+	r := &RawResponse{
+		StatusCode: resp.StatusCode,
+		Body:       respBody,
+		Header:     resp.Header,
+	}
+	return r, nil
+}
+
+type requestManager struct {
+	// Request sync lock
+	reqLock sync.Mutex
+	// Request to cancel
+	req *http.Request
+	// Channel to receive cancellation notice
+	CancellationReceiveChan <-chan bool
+	// Channel to send cancellation notification
+	CancellationNotifyChan chan bool
+	// Channel to receive stop signals
+	stopCh chan bool
+	// http client
+	c *Client
+}
+
+func NewRequestManager(cancellationReceiveChan <-chan bool, c *Client) *requestManager {
+	return &requestManager{sync.Mutex{}, &http.Request{}, cancellationReceiveChan, make(chan bool, 1), make(chan bool), c}
+}
+
+func (r *requestManager) CancellationHandler() {
+	select {
+	case <-r.CancellationReceiveChan:
+		r.CancellationNotifyChan <- true
+		logger.Debug("send.request is cancelled")
+	case <-r.stopCh:
+		return
+	}
+
+	// Repeat canceling request until this thread is stopped
+	// because we have no idea about whether it succeeds.
+	for {
+		r.reqLock.Lock()
+		r.c.httpClient.Transport.(*http.Transport).CancelRequest(r.req)
+		r.reqLock.Unlock()
+
+		select {
+		case <-time.After(100 * time.Millisecond):
+		case <-r.stopCh:
+			return
+		}
+	}
+}
+
+// send sends an HTTP request and returns an http.Response. It's up to the caller to close the response, or setup cancellation.
+func (r *requestManager) send(rr *RawRequest) (*http.Response, error) {
 	var resp *http.Response
 	var httpPath string
 	var err error
-	var respBody []byte
 
 	var numReqs = 1
 
-	checkRetry := c.CheckRetry
+	logger.Debug("requests: SendRequest %+v", rr)
+	checkRetry := r.c.CheckRetry
 	if checkRetry == nil {
 		checkRetry = DefaultCheckRetry
-	}
-
-	cancelled := make(chan bool, 1)
-	reqLock := new(sync.Mutex)
-
-	if rr.Cancel != nil {
-		cancelRoutine := make(chan bool)
-		defer close(cancelRoutine)
-
-		go func() {
-			select {
-			case <-rr.Cancel:
-				cancelled <- true
-				logger.Debug("send.request is cancelled")
-			case <-cancelRoutine:
-				return
-			}
-
-			// Repeat canceling request until this thread is stopped
-			// because we have no idea about whether it succeeds.
-			for {
-				reqLock.Lock()
-				c.httpClient.Transport.(*http.Transport).CancelRequest(req)
-				reqLock.Unlock()
-
-				select {
-				case <-time.After(100 * time.Millisecond):
-				case <-cancelRoutine:
-					return
-				}
-			}
-		}()
 	}
 
 	// If we connect to a follower and consistency is required, retry until
@@ -209,7 +282,7 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 	for attempt := 0; ; attempt++ {
 		if attempt > 0 {
 			select {
-			case <-cancelled:
+			case <-r.CancellationNotifyChan:
 				return nil, ErrRequestCancelled
 			case <-time.After(sleep):
 				sleep = sleep * 2
@@ -223,63 +296,59 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 
 		// get httpPath if not set
 		if httpPath == "" {
-			httpPath = c.getHttpPath(rr.RelativePath)
+			httpPath = r.c.getHttpPath(rr.RelativePath)
 		}
 
 		// Return a cURL command if curlChan is set
-		if c.cURLch != nil {
+		if r.c.cURLch != nil {
 			command := fmt.Sprintf("curl -X %s %s", rr.Method, httpPath)
 			for key, value := range rr.Values {
 				command += fmt.Sprintf(" -d %s=%s", key, value[0])
 			}
-			if c.credentials != nil {
-				command += fmt.Sprintf(" -u %s", c.credentials.username)
+			if r.c.credentials != nil {
+				command += fmt.Sprintf(" -u %s", r.c.credentials.username)
 			}
-			c.sendCURL(command)
+			r.c.sendCURL(command)
 		}
 
 		logger.Debug("send.request.to ", httpPath, " | method ", rr.Method)
 
-		req, err := func() (*http.Request, error) {
-			reqLock.Lock()
-			defer reqLock.Unlock()
+		err := func() error {
+			// Note that this request is synchronized with the requestManager's cancellation watch dog
+			r.reqLock.Lock()
+			defer r.reqLock.Unlock()
 
 			if rr.Values == nil {
-				if req, err = http.NewRequest(rr.Method, httpPath, nil); err != nil {
-					return nil, err
+				if r.req, err = http.NewRequest(rr.Method, httpPath, nil); err != nil {
+					return err
 				}
 			} else {
 				body := strings.NewReader(rr.Values.Encode())
-				if req, err = http.NewRequest(rr.Method, httpPath, body); err != nil {
-					return nil, err
+				if r.req, err = http.NewRequest(rr.Method, httpPath, body); err != nil {
+					return err
 				}
 
-				req.Header.Set("Content-Type",
+				r.req.Header.Set("Content-Type",
 					"application/x-www-form-urlencoded; param=value")
 			}
-			return req, nil
+			return nil
 		}()
 
 		if err != nil {
 			return nil, err
 		}
 
-		if c.credentials != nil {
-			req.SetBasicAuth(c.credentials.username, c.credentials.password)
+		if r.c.credentials != nil {
+			r.req.SetBasicAuth(r.c.credentials.username, r.c.credentials.password)
 		}
 
-		resp, err = c.httpClient.Do(req)
+		resp, err = r.c.httpClient.Do(r.req)
 		// clear previous httpPath
 		httpPath = ""
-		defer func() {
-			if resp != nil {
-				resp.Body.Close()
-			}
-		}()
 
 		// If the request was cancelled, return ErrRequestCancelled directly
 		select {
-		case <-cancelled:
+		case <-r.CancellationNotifyChan:
 			return nil, ErrRequestCancelled
 		default:
 		}
@@ -290,11 +359,11 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 		if err != nil {
 			logger.Debug("network error: ", err.Error())
 			lastResp := http.Response{}
-			if checkErr := checkRetry(c.cluster, numReqs, lastResp, err); checkErr != nil {
+			if checkErr := checkRetry(r.c.cluster, numReqs, lastResp, err); checkErr != nil {
 				return nil, checkErr
 			}
 
-			c.cluster.failure()
+			r.c.cluster.failure()
 			continue
 		}
 
@@ -302,27 +371,7 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 		logger.Debug("recv.response.from ", httpPath)
 
 		if validHttpStatusCode[resp.StatusCode] {
-			// try to read byte code and break the loop
-			respBody, err = ioutil.ReadAll(resp.Body)
-			if err == nil {
-				logger.Debug("recv.success ", httpPath)
-				break
-			}
-			// ReadAll error may be caused due to cancel request
-			select {
-			case <-cancelled:
-				return nil, ErrRequestCancelled
-			default:
-			}
-
-			if err == io.ErrUnexpectedEOF {
-				// underlying connection was closed prematurely, probably by timeout
-				// TODO: empty body or unexpectedEOF can cause http.Transport to get hosed;
-				// this allows the client to detect that and take evasive action. Need
-				// to revisit once code.google.com/p/go/issues/detail?id=8648 gets fixed.
-				respBody = []byte{}
-				break
-			}
+			return resp, nil
 		}
 
 		if resp.StatusCode == http.StatusTemporaryRedirect {
@@ -334,24 +383,19 @@ func (c *Client) SendRequest(rr *RawRequest) (*RawResponse, error) {
 				// set httpPath for following redirection
 				httpPath = u.String()
 			}
+			// redirects don't count toward retries
 			resp.Body.Close()
 			continue
 		}
 
-		if checkErr := checkRetry(c.cluster, numReqs, *resp,
+		// We're either going to retry, or fail having exceeded retries. Eitherway we need to close this response.
+		resp.Body.Close()
+
+		if checkErr := checkRetry(r.c.cluster, numReqs, *resp,
 			errors.New("Unexpected HTTP status code")); checkErr != nil {
 			return nil, checkErr
 		}
-		resp.Body.Close()
 	}
-
-	r := &RawResponse{
-		StatusCode: resp.StatusCode,
-		Body:       respBody,
-		Header:     resp.Header,
-	}
-
-	return r, nil
 }
 
 // DefaultCheckRetry defines the retrying behaviour for bad HTTP requests

@@ -1,9 +1,7 @@
 package etcd
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 )
 
 // Errors introduced by the Watch command.
@@ -73,34 +71,19 @@ func (c *Client) StreamWatch(prefix string, waitIndex uint64, recursive bool,
 		options["recursive"] = true
 	}
 
-	req, err := c.getRequest(prefix, options, stop)
+	rr, err := c.getRequest(prefix, options, stop)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := c.SendHTTP(req)
-	if err == ErrRequestCancelled {
-		return nil, ErrWatchStoppedByUser
-	}
-	defer resp.Body.Close()
-
-	decoder := json.NewDecoder(resp.Body)
+	errCh := make(chan error)
+	c.SendStreamRequest(rr, receiver, errCh)
 	for {
-		var got Response
-		err = decoder.Decode(&got)
-		if err != nil {
-			return nil, err
-		}
-
-		// TODO: More responsive stop signal?
 		select {
-		case <-stop:
-			return nil, ErrWatchStoppedByUser
+		case err := <-errCh:
+			return nil, err
 		default:
 		}
-
-		// TODO: Insert EtcdIndex, RaftIndex, RaftTerm
-		receiver <- &got
 	}
 }
 

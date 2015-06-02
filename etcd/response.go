@@ -31,6 +31,13 @@ var (
 	}
 )
 
+// addHeaders adds index and term parsed out from the http header to given response.
+func addHeaders(resp *Response, header http.Header) {
+	resp.EtcdIndex, _ = strconv.ParseUint(header.Get("X-Etcd-Index"), 10, 64)
+	resp.RaftIndex, _ = strconv.ParseUint(header.Get("X-Raft-Index"), 10, 64)
+	resp.RaftTerm, _ = strconv.ParseUint(header.Get("X-Raft-Term"), 10, 64)
+}
+
 // Unmarshal parses RawResponse and stores the result in Response
 func (rr *RawResponse) Unmarshal() (*Response, error) {
 	if rr.StatusCode != http.StatusOK && rr.StatusCode != http.StatusCreated {
@@ -44,12 +51,7 @@ func (rr *RawResponse) Unmarshal() (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// attach index and term to response
-	resp.EtcdIndex, _ = strconv.ParseUint(rr.Header.Get("X-Etcd-Index"), 10, 64)
-	resp.RaftIndex, _ = strconv.ParseUint(rr.Header.Get("X-Raft-Index"), 10, 64)
-	resp.RaftTerm, _ = strconv.ParseUint(rr.Header.Get("X-Raft-Term"), 10, 64)
-
+	addHeaders(resp, rr.Header)
 	return resp, nil
 }
 
