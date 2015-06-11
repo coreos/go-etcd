@@ -382,7 +382,7 @@ func (c *Client) createHttpPath(serverName string, _path string) string {
 	return u.String()
 }
 
-// dial attempts to open a TCP connection to the provided address, explicitly
+// DefaultDial attempts to open a TCP connection to the provided address, explicitly
 // enabling keep-alives with a one-second interval.
 func (c *Client) DefaultDial(network, addr string) (net.Conn, error) {
 	conn, err := net.DialTimeout(network, addr, c.config.DialTimeout)
