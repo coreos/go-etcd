@@ -29,7 +29,6 @@ func main() {
 
 ```bash
 go get github.com/coreos/go-etcd/etcd
-go get github.com/ugorji/go/codec
 ```
 
 ## Caveat
