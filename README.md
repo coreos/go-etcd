@@ -2,6 +2,14 @@
 
 [![GoDoc](https://godoc.org/github.com/coreos/go-etcd/etcd?status.png)](https://godoc.org/github.com/coreos/go-etcd/etcd)
 
+# DEPRECATED
+
+etcd now has an [official Go client](https://github.com/coreos/etcd/tree/master/client), which has
+a nicer API and better support.
+
+We strongly suggest you use the official Go client instead of go-etcd in your new projects.
+For existing projects, we suggest you migrate to the official Go client.
+
 ## Usage
 
 The current version of go-etcd supports etcd v2.0+, if you need support for etcd v0.4 please use go-etcd from the [release-0.4](https://github.com/coreos/go-etcd/tree/release-0.4) branch.
