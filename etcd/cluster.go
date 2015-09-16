@@ -36,8 +36,8 @@ func (cl *Cluster) failure() {
 }
 
 func (cl *Cluster) pick() string {
-	cl.mu.Lock()
-	defer cl.mu.Unlock()
+	cl.mu.RLock()
+	defer cl.mu.RUnlock()
 	return cl.Machines[cl.picked]
 }
 
