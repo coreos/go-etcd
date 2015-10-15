@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -15,6 +16,10 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/coreos/etcd/etcdserver/stats"
+	"sort"
+	"strconv"
 )
 
 // See SetConsistency for how to use these constants.
@@ -69,6 +74,7 @@ type Client struct {
 	// Argument err is the reason of the failure.
 	CheckRetry func(cluster *Cluster, numReqs int,
 		lastResp http.Response, err error) error
+	members []Member
 }
 
 // NewClient create a basic client that is configured to be used
@@ -87,6 +93,8 @@ func NewClient(machines []string) *Client {
 
 	client.initHTTPClient()
 	client.saveConfig()
+
+	go healthCheck(client)
 
 	return client
 }
@@ -120,6 +128,8 @@ func NewTLSClient(machines []string, cert, key, caCert string) (*Client, error) 
 	err = client.AddRootCA(caCert)
 
 	client.saveConfig()
+
+	go healthCheck(client)
 
 	return client, nil
 }
@@ -171,7 +181,162 @@ func NewClientFromReader(reader io.Reader) (*Client, error) {
 		}
 	}
 
+	go healthCheck(c)
+
 	return c, nil
+}
+
+func healthCheck(client *Client) {
+	for {
+		if ok := client.SyncCluster(); ok {
+			break
+		}
+	}
+
+	for {
+		// check period
+		time.Sleep(5 * time.Second)
+
+		// do we have a leader?
+		cl := client.GetCluster()
+		ep, ls0, err := getLeaderStats(client.transport, cl)
+		if err != nil {
+			logger.Warning(err)
+			continue
+		}
+
+		time.Sleep(time.Second)
+
+		// are all the members makeing progress?
+		_, ls1, err := getLeaderStats(client.transport, []string{ep})
+		if err != nil {
+			logger.Debug(err)
+			continue
+		}
+
+		var prints []string
+		var healthyMemberID []string
+
+		prints = append(prints, fmt.Sprintf("member %s is healthy\n", ls1.Leader))
+
+		healthyMemberID = append(healthyMemberID, ls1.Leader)
+		for id, fs0 := range ls0.Followers {
+			fs1, ok := ls1.Followers[id]
+			if !ok {
+				logger.Debug("Cluster configuration changed during health checking, retrying.")
+				continue
+			}
+			if fs1.Counts.Success <= fs0.Counts.Success {
+				prints = append(prints, fmt.Sprintf("member %s is unhealthy\n", id))
+			} else {
+				prints = append(prints, fmt.Sprintf("member %s is healthy\n", id))
+				healthyMemberID = append(healthyMemberID, id)
+			}
+		}
+
+		sort.Strings(prints)
+		for _, p := range prints {
+			logger.Debugf(p)
+		}
+
+		var urls []string
+		for _, id := range healthyMemberID {
+			for _, member := range client.members {
+				if member.ID == id {
+					urls = append(urls, member.ClientURLs...)
+				}
+			}
+		}
+
+		client.cluster.updateHealthyMachines(urls)
+
+		needSwitch := true
+		for _, url := range urls {
+			if client.cluster.picked == url {
+				needSwitch = false
+				break
+			}
+		}
+
+		if needSwitch {
+			logger.Debugf("client pin to a unhealthy machine, switching\n")
+			client.cluster.failure()
+		}
+	}
+}
+
+func getLeaderStats(tr *http.Transport, endpoints []string) (string, *stats.LeaderStats, error) {
+	// go-etcd does not support cluster stats, use http client for now
+	// TODO: use new etcd client with new member/stats endpoint
+	httpclient := http.Client{
+		Transport: tr,
+	}
+
+	invalidNum := 0
+
+	for _, ep := range endpoints {
+		resp, err := httpclient.Get(ep + "/v2/stats/leader")
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			// if ep is not the leader node, will get a 403 http code, try another node
+			continue
+		}
+
+		ls := &stats.LeaderStats{}
+		d := json.NewDecoder(resp.Body)
+		err = d.Decode(ls)
+		if err != nil {
+			continue
+		}
+		if isValid(tr, ep) {
+			return ep, ls, nil
+		} else {
+			invalidNum++
+		}
+	}
+	// if there are more that N/2 invalid leaders in a N member cluster=, then cluster is unhealthy
+	if invalidNum > len(endpoints)/2 {
+		return "", nil, errors.New("cluster is unhealthy")
+	}
+	return "", nil, errors.New("cluster may be unhealthy: no leader")
+}
+
+// if the raft algorithm making progress in leader, if not, the leader is isolated from cluster
+func isValid(tr *http.Transport, ep string) bool {
+	httpclient := http.Client{
+		Transport: tr,
+	}
+	// we only need the header of response
+	resp0, err := httpclient.Head(ep + "/v2/keys")
+	if err != nil {
+		return false
+	}
+	rt0, err1 := strconv.ParseUint(resp0.Header.Get("X-Raft-Term"), 10, 64)
+	ri0, err2 := strconv.ParseUint(resp0.Header.Get("X-Raft-Index"), 10, 64)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+
+	time.Sleep(time.Second)
+	// we only need the header of response
+	resp1, err := httpclient.Head(ep + "/v2/keys")
+	if err != nil {
+		return false
+	}
+	rt1, err1 := strconv.ParseUint(resp1.Header.Get("X-Raft-Term"), 10, 64)
+	ri1, err2 := strconv.ParseUint(resp1.Header.Get("X-Raft-Index"), 10, 64)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+
+	// raft algorithm doesn't make progress, leader is invalid
+	if rt0 != rt1 || ri0 == ri1 {
+		return false
+	}
+	return true
 }
 
 // Override the Client's HTTP Transport object
@@ -351,12 +516,12 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 				// try another machine
 				continue
 			}
+			c.members = mCollection
 
 			urls := make([]string, 0)
 			for _, m := range mCollection {
 				urls = append(urls, m.ClientURLs...)
 			}
-
 			members = strings.Join(urls, ",")
 		}
 
