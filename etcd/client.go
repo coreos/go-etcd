@@ -337,6 +337,9 @@ func (c *Client) internalSyncCluster(machines []string) bool {
 				// try another machine in the cluster
 				continue
 			}
+			if resp.StatusCode != http.StatusOK {
+				continue
+			}
 			members = string(b)
 		} else {
 			b, err := ioutil.ReadAll(resp.Body)
