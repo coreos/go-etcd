@@ -22,6 +22,7 @@ var (
 		"sorted":    reflect.Bool,
 		"wait":      reflect.Bool,
 		"waitIndex": reflect.Uint64,
+		"stream":    reflect.Bool,
 	}
 
 	VALID_PUT_OPTIONS = validOptions{

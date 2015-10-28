@@ -53,6 +53,40 @@ func (c *Client) Watch(prefix string, waitIndex uint64, recursive bool,
 	}
 }
 
+// StreamWatch streams changes under the given prefix.
+func (c *Client) StreamWatch(prefix string, waitIndex uint64, recursive bool,
+	receiver chan *Response, stop chan bool) (*Response, error) {
+	logger.Debugf("stream watch %s [%s]", prefix, c.cluster.Leader)
+
+	defer close(receiver)
+
+	options := Options{
+		"wait":   true,
+		"stream": true,
+	}
+	if waitIndex > 0 {
+		options["waitIndex"] = waitIndex
+	}
+	if recursive {
+		options["recursive"] = true
+	}
+
+	rr, err := c.getRequest(prefix, options, stop)
+	if err != nil {
+		return nil, err
+	}
+
+	errCh := make(chan error)
+	c.SendStreamRequest(rr, receiver, errCh)
+	for {
+		select {
+		case err := <-errCh:
+			return nil, err
+		default:
+		}
+	}
+}
+
 func (c *Client) RawWatch(prefix string, waitIndex uint64, recursive bool,
 	receiver chan *RawResponse, stop chan bool) (*RawResponse, error) {
 
