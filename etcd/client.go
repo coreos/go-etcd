@@ -86,6 +86,7 @@ func NewClient(machines []string) *Client {
 	}
 
 	client.initHTTPClient()
+	client.SyncCluster()
 	client.saveConfig()
 
 	return client
@@ -118,6 +119,7 @@ func NewTLSClient(machines []string, cert, key, caCert string) (*Client, error) 
 	}
 
 	err = client.AddRootCA(caCert)
+	client.SyncCluster()
 
 	client.saveConfig()
 
@@ -293,6 +295,12 @@ func (c *Client) AddRootCA(caCert string) error {
 	c.saveConfig()
 
 	return err
+}
+
+// SetRawCluster sets cluster information using the given machine list
+// without sync.
+func (c *Client) SetRawCluster(machines []string) {
+	c.cluster.Machines = machines
 }
 
 // SetCluster updates cluster information using the given machine list.
