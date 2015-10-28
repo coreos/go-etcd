@@ -112,14 +112,17 @@ func NewTLSClient(machines []string, cert, key, caCert string) (*Client, error) 
 		config:  config,
 	}
 
-	err := client.initHTTPSClient(cert, key)
-	if err != nil {
+	if err := client.initHTTPSClient(cert, key); err != nil {
 		return nil, err
 	}
 
-	err = client.AddRootCA(caCert)
+	if err := client.AddRootCA(caCert); err != nil {
+		return nil, err
+	}
 
-	client.saveConfig()
+	if err := client.saveConfig(); err != nil {
+		return nil, err
+	}
 
 	return client, nil
 }
