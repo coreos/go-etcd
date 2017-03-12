@@ -2,7 +2,7 @@ package etcd
 
 import "fmt"
 
-func (c *Client) CompareAndSwap(key string, value string, ttl uint64,
+func (c *Client) CompareAndSwap(key, value string, ttl uint64,
 	prevValue string, prevIndex uint64) (*Response, error) {
 	raw, err := c.RawCompareAndSwap(key, value, ttl, prevValue, prevIndex)
 	if err != nil {
@@ -12,7 +12,7 @@ func (c *Client) CompareAndSwap(key string, value string, ttl uint64,
 	return raw.Unmarshal()
 }
 
-func (c *Client) RawCompareAndSwap(key string, value string, ttl uint64,
+func (c *Client) RawCompareAndSwap(key, value string, ttl uint64,
 	prevValue string, prevIndex uint64) (*RawResponse, error) {
 	if prevValue == "" && prevIndex == 0 {
 		return nil, fmt.Errorf("You must give either prevValue or prevIndex.")
