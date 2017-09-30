@@ -38,6 +38,19 @@ func main() {
 ```bash
 go get github.com/coreos/go-etcd/etcd
 ```
+Note that this is broken upstream, so you also need to do:
+```bash
+#save current etcd directory
+etcdDir=$(pwd)
+#change to ugorji/go directory
+cd ~/go/src/github.com/ugorji/go
+#go back to working version
+git checkout 8c0409fcbb70099c748d71f714529204975f6c3f
+#go back to etcd directory
+cd $etcdDir
+go get github.com/coreos/go-etcd/etcd
+
+```
 
 ## Caveat
 
