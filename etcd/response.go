@@ -79,7 +79,7 @@ type Node struct {
 
 type Nodes []*Node
 
-// interfaces for sorting
+// Len: interfaces for sorting
 func (ns Nodes) Len() int {
 	return len(ns)
 }

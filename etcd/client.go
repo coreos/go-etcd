@@ -174,7 +174,7 @@ func NewClientFromReader(reader io.Reader) (*Client, error) {
 	return c, nil
 }
 
-// Override the Client's HTTP Transport object
+// SetTransport: Override the Client's HTTP Transport object
 func (c *Client) SetTransport(tr *http.Transport) {
 	c.httpClient.Transport = tr
 	c.transport = tr
@@ -252,7 +252,7 @@ func (c *Client) SetConsistency(consistency string) error {
 	return nil
 }
 
-// Sets the DialTimeout value
+// SetDialTimeout: Sets the DialTimeout value
 func (c *Client) SetDialTimeout(d time.Duration) {
 	c.config.DialTimeout = d
 }

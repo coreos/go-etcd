@@ -1,6 +1,6 @@
 package etcd
 
-// Add a new directory with a random etcd-generated key under the given path.
+// AddChildDir adds a new directory with a random etcd-generated key under the given path.
 func (c *Client) AddChildDir(key string, ttl uint64) (*Response, error) {
 	raw, err := c.post(key, "", ttl)
 
@@ -11,7 +11,7 @@ func (c *Client) AddChildDir(key string, ttl uint64) (*Response, error) {
 	return raw.Unmarshal()
 }
 
-// Add a new file with a random etcd-generated key under the given path.
+// AddChild adds a new file with a random etcd-generated key under the given path.
 func (c *Client) AddChild(key string, value string, ttl uint64) (*Response, error) {
 	raw, err := c.post(key, value, ttl)
 
