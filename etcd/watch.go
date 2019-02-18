@@ -9,7 +9,7 @@ var (
 	ErrWatchStoppedByUser = errors.New("Watch stopped by the user via stop channel")
 )
 
-// If recursive is set to true the watch returns the first change under the given
+// Watch: If recursive is set to true the watch returns the first change under the given
 // prefix since the given index.
 //
 // If recursive is set to false the watch returns the first change to the given key
